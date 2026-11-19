@@ -8,7 +8,7 @@ import { CapinfoUsageService } from './usage-service.js';
 import { CapinfoSpending } from './spending.js';
 
 export const name = 'capinfo-models';
-export const inject = ['llm', 'settings', 'credentials', 'storageDomain', 'connection', 'tools'];
+export const inject = ['llm', 'settings', 'credentials', 'storageDomain', 'connection'];
 export const Config = Schema.object({
   baseURL: Schema.string().description('Capinfo API URL; defaults to the existing capinfo provider URL.'),
   api: Schema.union(['openai-completions', 'openai-responses', 'anthropic-messages']).description('Protocol; defaults to the existing capinfo provider protocol.'),
@@ -62,7 +62,7 @@ export async function apply(ctx, config) {
     await domain.close();
   });
   // Loader activation is inside an HMR transaction. Migrating legacy settings there
-  // would nest another transaction, so first-run migration waits for a real UI/tool read.
+  // would nest another transaction, so first-run migration waits for a real settings-page read.
   // Once migrated (or on a clean install), registration is safe during activation.
   if (!provider.legacy()) await ensureStarted();
   spending = new CapinfoSpending(
@@ -101,20 +101,6 @@ export async function apply(ctx, config) {
       const result = await call(input, request.signal);
       return Response.json(result, {headers: {'Cache-Control': 'no-store'}});
     },
-  }));
-  ctx.effect(() => ctx.tools.register({
-    name: 'capinfo_models',
-    description: 'Manage Capinfo configuration and model selection for this profile. deleteApiKey removes only the locally saved API key, preserving model configuration; environment fallbacks may remain. Enter secrets in Settings → Capinfo Models rather than chat to avoid logging them.',
-    parameters: {
-      type: 'object', properties: {
-        action: {type: 'string', enum: ['status', 'refresh', 'select', 'save', 'deleteApiKey']},
-        selectedIds: {type: 'array', items: {type: 'string'}, description: 'For select: nonempty exact model IDs from status.'},
-        apiKey: {type: 'string', description: 'For save: new API key; omission or blank preserves it. Prefer the settings UI for secrets.'},
-      }, required: ['action'], additionalProperties: false,
-    },
-    output: {schema: {type: 'object', properties: {ok: {type: 'boolean'}}, required: ['ok'], additionalProperties: true},
-      render: (_args, value) => [{type: 'text', text: JSON.stringify(value)}]},
-    execute: (input, exec) => call(input, exec.signal),
   }));
   // First installation uses the existing key, without reading or returning its value to the agent.
   // Running sessions retain their already-captured model configuration.

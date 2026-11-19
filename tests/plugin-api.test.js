@@ -55,7 +55,7 @@ test('settings bridge and Host service share the cache, never trigger I/O or mig
     }}, 
     llm: {listConfigurableProviders: () => [], listProviders: () => []},
     connection: {fetch: {register: route => {routes.set(route.path, route); return () => routes.delete(route.path);}}},
-    tools: {register: () => () => {}}, get: () => undefined,
+    get: () => undefined,
   };
   await apply(ctx, {});
   // Let the nonblocking initial sampler finish its missing-credential check.
@@ -119,7 +119,7 @@ test('initial sample survives the real storage schema and exposes no private amo
     }},
     llm: {listConfigurableProviders: () => [], listProviders: () => []},
     connection: {fetch: {register: route => {routes.set(route.path, route); return () => routes.delete(route.path);}}},
-    tools: {register: () => () => {}}, get: () => undefined,
+    get: () => undefined,
   };
   try {
     await apply(ctx, {});

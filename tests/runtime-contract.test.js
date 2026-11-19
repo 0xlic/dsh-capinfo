@@ -3,14 +3,35 @@ import assert from 'node:assert/strict';
 import {createCapinfoRuntime} from '../provider-runtime.js';
 import * as plugin from '../index.js';
 import {readFileSync} from 'node:fs';
+import semver from 'semver';
 
 const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-test('DSH compatibility declaration matches the tested runtime dependencies', () => {
-  assert.equal(manifest.engines.dsh, '0.2.2-rc.3');
-  for (const name of ['@deepseek-ai/dsh-credentials', '@deepseek-ai/dsh-llm', '@deepseek-ai/dsh-llm-pi-ai']) {
+const dshPeers = ['@deepseek-ai/dsh-credentials', '@deepseek-ai/dsh-llm', '@deepseek-ai/dsh-llm-pi-ai'];
+
+test('DSH accepts later 0.2.x patches and prereleases without admitting 0.3 prereleases', () => {
+  for (const name of dshPeers) assert.equal(manifest.peerDependencies[name], manifest.engines.dsh, name);
+  for (const [version, hostSupported, peerSupported = hostSupported] of [
+    ['0.2.2-rc.2', false], ['0.2.2-rc.3', true], ['0.2.2-rc.5', true],
+    ['0.2.2-rc.6', true], ['0.2.2', true], ['0.2.3-rc.1', true, false], ['0.2.3', true],
+    ['0.3.0-alpha.1', false], ['0.3.0', false],
+  ]) {
+    assert.equal(semver.satisfies(version, manifest.engines.dsh, {includePrerelease: true}), hostSupported,
+      `engines.dsh on ${version}`);
+    // Package managers using default SemVer rules exclude prereleases of later patch tuples.
+    for (const name of dshPeers) {
+      assert.equal(semver.satisfies(version, manifest.peerDependencies[name]), peerSupported, `${name} on ${version}`);
+    }
+  }
+});
+
+test('runtime contracts exercise one exact, supported DSH package set', () => {
+  const testVersion = manifest.devDependencies[dshPeers[0]];
+  assert.ok(semver.valid(testVersion));
+  assert.ok(semver.satisfies(testVersion, manifest.engines.dsh, {includePrerelease: true}));
+  for (const name of dshPeers) {
     const installed = JSON.parse(readFileSync(new URL(`../node_modules/${name}/package.json`, import.meta.url), 'utf8'));
-    assert.equal(manifest.peerDependencies[name], manifest.engines.dsh, name);
-    assert.equal(installed.version, manifest.engines.dsh, `${name} test dependency`);
+    assert.equal(manifest.devDependencies[name], testVersion, `${name} dev dependency`);
+    assert.equal(installed.version, testVersion, `${name} installed version`);
   }
 });
 

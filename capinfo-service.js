@@ -2,7 +2,7 @@ export class CapinfoError extends Error {}
 const DEFAULT_URL = 'https://api.capinfo.com.cn/v1';
 const clone = value => structuredClone(value);
 
-/** Shared Host operations: UI and agent tools both call run(). */
+/** Shared Host operations: settings UI actions call run(). */
 export class CapinfoService {
   constructor(ctx, config, store, provider, usage, spending) {
     this.usage = usage;

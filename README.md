@@ -4,22 +4,21 @@ DeepSeek Harness 持久化 Host + Client 插件。配置入口：**设置 → Ca
 
 ## 兼容版本
 
-- 插件 1.0.5 对应 DSH **0.2.2-rc.3**，同步更新 DSH 运行时 peerDependencies 和依赖锁文件；不使用版本豁免。
-- rc.3 已通过运行时适配器契约、凭据处理、配置迁移、用量存储及客户端回归测试；新增兼容声明与实际测试依赖版本一致性检查。当前安装附带的升级索引没有单独的 rc.2 → rc.3 迁移指南，已核对相关适配器与 provider 注册 API。
-- 核对 rc.1 → rc.2 升级指南：附件错误码变更由内置适配器处理，本插件没有相关错误分类；设置页没有覆盖页头的自定义浮层，无需窗口拖动区域迁移。账号、Remote、Forge、CUA、Session、终端、搜索计费和插件管理接口变更不涉及本插件。
-- 更新保留现有 API 凭据、模型选择和用量存储，无需卸载或重新填写密钥。
+- 插件 1.0.6 的 DSH 加载范围是 `>=0.2.2-rc.3 <0.3.0-0`。后续 DSH 0.2.x 更新（含 RC）不会仅因版本号变化而被加载前检查拦截；0.3 的预发行版和正式版均不放行。三个 DSH peer 使用同一范围，本地开发依赖仍固定在 rc.5。已跑全量回归的是 rc.3、rc.4 和 rc.5；未来 0.2.x 通过版本检查不等于已经验证过运行行为。
+- DSH 的 rc.3 和 rc.4 升级索引分别列出 DeepSeek 拒答错误码和 DeepSeek 网页搜索默认值变更；本插件不匹配该错误码、不接管搜索，无需迁移。
+- 更新保留现有 API 凭据、模型选择和用量存储。若桌面端仍显示旧的兼容结果，请完整退出并重开 DSH；本地目录链接安装无需先卸载。
 
 ## 功能
 
 - **看板与配置分离**：设置中的“Capinfo 模型”只保留 API 密钥与模型配置；今日用量、近 30 天金额/Token 图表移到左上角原生导航菜单【Capinfo看板】的居中弹窗，不再出现在设置页。
 - 插件独立注册 `capinfo` 运行时 provider，只在“Capinfo 模型”菜单管理，不发布通用模型设置目录条目，因此通用“模型”页面不显示 Capinfo，也没有误删除入口。聊天模型选择器正常使用，provider ID 不变。
-- 首次启用后，在首次设置页/工具读取时自动迁移现有 `capinfo` 自定义 API 的 URL、协议、凭据引用、模型及兼容参数（避免在 Loader 热加载事务内嵌套修改配置）；迁移后每次启动直接注册独立 provider。无现有路由时使用 `https://api.capinfo.com.cn/v1`、`openai-responses` 和 `CAPINFO_API_KEY`。
+- 首次启用后，在首次打开设置页时自动迁移现有 `capinfo` 自定义 API 的 URL、协议、凭据引用、模型及兼容参数（避免在 Loader 热加载事务内嵌套修改配置）；迁移后每次启动直接注册独立 provider。无现有路由时使用 `https://api.capinfo.com.cn/v1`、`openai-responses` 和 `CAPINFO_API_KEY`。
 - API 密钥保存至 Harness 凭据服务，不写入插件配置、不回显。已配置状态显示绿色，密钥框显示固定 12 个圆点占位符（不是实际密钥，不反映长度，也不会作为输入提交）。首次安装发现已有密钥时自动拉取一次；首次同步或保存新密钥默认选中全部模型。
-- 保存按钮右侧提供红色“删除凭证”，展开确认后只删除本地保存的 API 密钥，保留接口和模型配置。环境变量或 `.env` 中的备用密钥无法由此删除，仍有效时界面会明确提醒；只读凭据存储禁用删除。工具同一操作为 `action: deleteApiKey`。
+- 保存按钮右侧提供红色“删除凭证”，展开确认后只删除本地保存的 API 密钥，保留接口和模型配置。环境变量或 `.env` 中的备用密钥无法由此删除，仍有效时界面会明确提醒；只读凭据存储禁用删除。
 - 模型列表搜索、勾选、全选搜索结果、保存勾选及重新拉取。后续重新拉取保留原选择，新模型作为候选。至少选一个模型（底层自定义 API 不接受空列表）。
 - **输入能力与独立视觉纠偏**：一般模型优先使用自身输入类型，其次使用路由默认配置，未声明时仅支持文本；原生图片能力始终保留。[视觉纠偏规则](<vision-capabilities.js>) 当前仅针对 `glm-5.3-flash`（兼容大小写及空格/下划线分隔）补充图片输入，不按显示名称或 GLM 前缀泛匹配。模型发现和适配器底层模型共用此规则，已有文本-only 配置在插件重新加载后也生效，无需重新拉取或改写原配置；后续模型只需扩展独立规则表。
 - 仅修改 `capinfo` 路由，保留其他接口。启用了 `dsh-scoped-models` 时，仅同步其中的 capinfo 选择，保留其他供应商。
-- UI 与 `capinfo_models` agent tool 共用 Host 操作逻辑。请在设置里输入 API 密钥，不要在对话或工具参数中提交秘密（对话/工具参数会进入会话记录）。
+- 界面操作统一走 Host 侧 `CapinfoService.run()`，经 `POST /api/plugins/capinfo` 到达；本插件不向 agent 注册任何工具。请在设置里输入 API 密钥，不要在对话中提交秘密（对话内容会进入会话记录）。
 
 ## 每日金额与 Token 用量
 
@@ -45,7 +44,7 @@ DeepSeek Harness 持久化 Host + Client 插件。配置入口：**设置 → Ca
 {"ok":true,"usage":{"date":"2026-11-11","timeZone":"Asia/Shanghai","inputTokens":100,"outputTokens":20,"cacheReadTokens":10,"cacheWriteTokens":0,"totalTokens":130,"requests":1,"updatedAt":"2026-11-11T03:00:00.000Z","amount":0.12,"amountUpdatedAt":"2026-11-11T03:00:00.000Z","history":[{"date":"2026-11-11","inputTokens":100,"outputTokens":20,"cacheReadTokens":10,"cacheWriteTokens":0,"totalTokens":130,"requests":1,"updatedAt":"2026-11-11T03:00:00.000Z","amount":0.12,"amountUpdatedAt":"2026-11-11T03:00:00.000Z"}],"spending":{"status":"ready","checkedAt":"2026-11-11T03:00:00.000Z","error":null},"persistenceError":false}}
 ```
 
-`POST /api/plugins/capinfo` 的 `{"action":"status"}` 及 `capinfo_models` 工具状态也附带同一 `usage`。新日无用量时 Token 计数全为零，`updatedAt: null`，金额首次采样前为 `null`；历史仍可读取。
+`POST /api/plugins/capinfo` 的 `{"action":"status"}` 响应也附带同一 `usage`。新日无用量时 Token 计数全为零，`updatedAt: null`，金额首次采样前为 `null`；历史仍可读取。
 
 Host 插件可直接读取标准 Cordis 服务，无需 HTTP 或凭据。只需要看板顶部的三个数值（费用、Token、数据刷新时间）时调用 `today()`：
 
@@ -76,9 +75,9 @@ TypeScript 类型通过 `import type { CapinfoTodayUsage, CapinfoUsageSnapshot }
 
 ## 适配器复用与版本约束
 
-复用已安装 `@deepseek-ai/dsh-llm-pi-ai@0.2.2-rc.2` 导出的 `PiAiAdapter` 和 pi-ai 公共协议工厂，保留 Harness 的工具调用、历史转换、图片预算、replay、用量与错误处理；不调用会注册通用目录的 `llm-pi-ai.apply`，不改 Harness 本体，不做 CSS 隐藏。仅为 Capinfo 自定义路由构建模型/推理级别/compat 元数据。对应模型字段的语义依据 DeepSeek Harness（MIT）公开安装实现；未复制完整目录解析器或流实现。`PiAiAdapter` 的配置结构不是跨版本稳定接口，升级 Harness 后须先进行契约回归，相关 peer 版本已约束。
+复用宿主 `@deepseek-ai/dsh-llm-pi-ai` 导出的 `PiAiAdapter` 和 pi-ai 公共协议工厂，保留 Harness 的工具调用、历史转换、图片预算、replay、用量与错误处理；不调用会注册通用目录的 `llm-pi-ai.apply`，不改 Harness 本体，不做 CSS 隐藏。仅为 Capinfo 自定义路由构建模型/推理级别/compat 元数据。对应模型字段的语义依据 DeepSeek Harness（MIT）公开安装实现；未复制完整目录解析器或流实现。
 
-当前适配目标为 **DSH 0.2.2-rc.2**；`engines.dsh` 与三个 DSH peer 依赖均精确约束到此版本，不通过版本豁免强行加载，也不声明未经回归的未来版本兼容。
+`PiAiAdapter` 的配置结构不是跨版本稳定接口。0.2.x 升级无需逐版修改声明；如果宿主 API 确实发生变化，再修复适配器。跨到 0.3 前先跑契约回归，再扩展兼容范围，不使用版本豁免。
 
 ## 本地验证
 
