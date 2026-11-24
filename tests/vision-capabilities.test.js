@@ -6,8 +6,9 @@ import {discoverCapinfoModels} from '../model-discovery.js';
 
 const profile = {api: 'openai-responses', baseURL: 'https://api.capinfo.com.cn/v1'};
 
-test('vision correction matches only the registered ID and safe spelling variants', () => {
-  for (const id of ['glm-5.3-flash', 'GLM-5.3-Flash', 'Glm 5.3 Flash', 'glm_5.3_flash']) {
+test('vision correction matches only registered IDs and safe spelling variants', () => {
+  for (const id of ['glm-5.3-flash', 'GLM-5.3-Flash', 'Glm 5.3 Flash', 'glm_5.3_flash',
+    'glm-5.4', 'GLM-5.4', 'GLM 5.4', 'glm_5.4']) {
     for (const input of [undefined, [], ['text'], ['text', 'image'], ['image']]) {
       const before = structuredClone(input);
       const actual = correctVisionInput(id, input);
@@ -42,16 +43,23 @@ test('profile correction respects validation and does not trust display names', 
 test('discovery corrects absent and text-only metadata in both response shapes', async () => {
   for (const api of ['openai-responses', 'openai-completions', 'anthropic-messages']) {
     for (const metadata of [{}, {input: ['text']}, {input_modalities: ['text']}, {inputModalities: ['text', 'image']}]) {
-      const target = {id: 'glm-5.3-flash', ...metadata};
-      for (const body of [
-        {data: [target, {id: 'glm-5.3', name: 'GLM 5.3 Flash'}, {id: 'native', input: ['text', 'image']}]},
-        {models: {'glm-5.3-flash': target, 'glm-5.3': {name: 'GLM 5.3 Flash'}, native: {input: ['text', 'image']}}},
-      ]) {
+      const models = {
+        'glm-5.3-flash': metadata,
+        'glm-5.4': metadata,
+        'glm-5.3': {name: 'GLM 5.3 Flash'},
+        'glm-5.4-preview': {name: 'GLM 5.4'},
+        native: {input: ['text', 'image']},
+      };
+      for (const body of [{models}, {data: Object.entries(models).map(([id, row]) => ({id, ...row}))}]) {
         const rows = await discoverCapinfoModels({api, apiKey: 'test-only-key'}, profile, undefined,
           async () => Response.json(body));
-        assert.deepEqual(rows[0].inputModalities, ['text', 'image']);
-        assert.equal(rows[1].inputModalities, undefined);
-        assert.deepEqual(rows[2].inputModalities, ['text', 'image']);
+        assert.deepEqual(Object.fromEntries(rows.map(row => [row.id, row.inputModalities])), {
+          'glm-5.3-flash': ['text', 'image'],
+          'glm-5.4': ['text', 'image'],
+          'glm-5.3': undefined,
+          'glm-5.4-preview': undefined,
+          native: ['text', 'image'],
+        });
       }
     }
   }

@@ -4,6 +4,7 @@
  */
 const VISION_RULES = Object.freeze([
   Object.freeze({id: 'glm-5.3-flash'}),
+  Object.freeze({id: 'glm-5.4'}),
 ]);
 
 const normalizeId = id => typeof id === 'string' ? id.toLowerCase().replace(/[ _]/g, '-') : '';

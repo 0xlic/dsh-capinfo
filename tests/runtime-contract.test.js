@@ -77,9 +77,10 @@ for (const api of ['openai-responses', 'openai-completions', 'anthropic-messages
 
 for (const api of ['openai-responses', 'openai-completions', 'anthropic-messages']) {
   for (const legacyInput of [true, false]) {
-    test(`GLM 5.3 Flash corrects ${legacyInput ? 'legacy text-only' : 'omitted'} input through ${api} runtime contracts`, async () => {
-      const correctedIds = ['glm-5.3-flash', 'GLM-5.3-FLASH', 'GLM 5.3 FLASH', 'glm_5.3_flash'];
-      const unchangedIds = ['glm-5.3', 'glm-5.3-flash-preview', 'contract-model'];
+    test(`GLM vision models correct ${legacyInput ? 'legacy text-only' : 'omitted'} input through ${api} runtime contracts`, async () => {
+      const correctedIds = ['glm-5.3-flash', 'GLM-5.3-FLASH', 'GLM 5.3 FLASH', 'glm_5.3_flash',
+        'glm-5.4', 'GLM-5.4', 'GLM 5.4', 'glm_5.4'];
+      const unchangedIds = ['glm-5.3', 'glm-5.3-flash-preview', 'glm-5.4-preview', 'vendor/glm-5.4', 'contract-model'];
       const raw = {...profile(api), models: [...correctedIds, ...unchangedIds].map(id => ({
         id, ...(legacyInput ? {input: ['text']} : {}),
       }))};
