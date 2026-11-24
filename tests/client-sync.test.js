@@ -49,15 +49,17 @@ const end = source.indexOf('\n          }, []);', start);
 const callback = '(' + source.slice(start, end) + '\n          })';
 function setup(responses, {dirty = true} = {}) {
   const original = {selectedIds: ['one']};
-  const values = {state: original, selected: dirty ? ['two'] : ['one'], notice: null};
+  const values = {state: original, selected: dirty ? ['two'] : ['one'], notice: null, retryNotice: null};
   const drafts = {current: {...values}};
   const lifecycle = {current: {mounted: true, controller: null}};
-  const calls = [];
+  const calls = [], notified = [];
   const request = run(callback, {
     AbortController, Set, drafts, lifecycle,
+    notifyRetryFeature: () => {notified.push(true);},
     setState: value => {values.state = value;},
     setSelected: value => {values.selected = value;},
     setNotice: value => {values.notice = value;},
+    setRetryNotice: value => {values.retryNotice = value; drafts.current.retryNotice = value;},
     setBusy: () => {},
     fetch: async (url, options) => {
       assert.equal(url, 'api/plugins/capinfo');
@@ -68,7 +70,7 @@ function setup(responses, {dirty = true} = {}) {
       return {ok: true, json: async () => response};
     },
   });
-  return {request, values, calls, lifecycle};
+  return {request, values, calls, lifecycle, notified};
 }
 const status = {ok: true, selectedIds: ['one', 'three'], models: [{id: 'three'}], hasApiKey: true};
 
@@ -156,6 +158,53 @@ test('successful refresh updates clean selections but preserves dirty ones', asy
   assert.deepEqual(dirty.values.selected, ['two']);
   const clean = setup([status], {dirty: false}); await clean.request('refresh');
   assert.deepEqual(clean.values.selected, ['one', 'three']);
+});
+
+test('retry switch sends only the requested boolean and retains unsaved selections', async () => {
+  assert.match(source, /if \(!retryDisabled\) request\('setRetryEnabled', \{ retryEnabled: !retryEnabled \}\)/);
+  for (const retryEnabled of [true, false]) {
+    const f = setup([{...status, retryEnabled}]);
+    await f.request('setRetryEnabled', {retryEnabled});
+    assert.deepEqual(f.calls, [{action: 'setRetryEnabled', retryEnabled}]);
+    assert.equal(f.values.state.retryEnabled, retryEnabled);
+    assert.deepEqual(f.values.selected, ['two']);
+    assert.equal(f.values.notice, null);
+    assert.equal(f.values.retryNotice.key, 'saved');
+    // The composer switches re-read their session state after a confirmed change.
+    assert.deepEqual(f.notified, [true]);
+  }
+});
+
+test('failed retry switch save reads back persisted state but does not replay the write', async () => {
+  const f = setup([new Error('connection lost'), {...status, retryEnabled: false}]);
+  await f.request('setRetryEnabled', {retryEnabled: true});
+  assert.deepEqual(f.calls, [{action: 'setRetryEnabled', retryEnabled: true}, {action: 'status'}]);
+  assert.equal(f.values.state.retryEnabled, false);
+  assert.deepEqual(f.values.selected, ['two']);
+  assert.equal(f.values.retryNotice.key, 'error');
+  assert.equal(f.values.retryNotice.unverified, false);
+  assert.deepEqual(f.notified, [], 'an unconfirmed change must not re-render composer switches');
+});
+
+test('unverified retry setting blocks writes until a status read returns a boolean', async () => {
+  const f = setup([new Error('connection lost'), new Error('offline'), new Error('still offline'), status,
+    {...status, retryEnabled: true}, {...status, retryEnabled: false}]);
+  await f.request('setRetryEnabled', {retryEnabled: true});
+  assert.equal(f.values.retryNotice.key, 'retryModeUnverified');
+  assert.equal(f.values.retryNotice.unverified, true);
+  await f.request('setRetryEnabled', {retryEnabled: false});
+  assert.deepEqual(f.calls.map(row => row.action), ['setRetryEnabled', 'status']);
+  await f.request('status');
+  assert.equal(f.values.retryNotice.unverified, true);
+  await f.request('status');
+  assert.equal(f.values.retryNotice.unverified, true);
+  await f.request('status');
+  assert.equal(f.values.retryNotice.key, 'retryModeVerified');
+  assert.equal(f.values.state.retryEnabled, true);
+  await f.request('setRetryEnabled', {retryEnabled: false});
+  assert.deepEqual(f.calls.map(row => row.action), ['setRetryEnabled', 'status', 'status', 'status', 'status', 'setRetryEnabled']);
+  assert.equal(f.values.state.retryEnabled, false);
+  assert.deepEqual(f.values.selected, ['two']);
 });
 
 test('successful select adopts server result and unmounted callers never update state', async () => {

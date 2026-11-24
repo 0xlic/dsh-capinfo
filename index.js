@@ -6,12 +6,14 @@ import { createCapinfoRuntime } from './provider-runtime.js';
 import { CapinfoUsage, emptyUsage } from './usage.js';
 import { CapinfoUsageService } from './usage-service.js';
 import { CapinfoSpending } from './spending.js';
+import { SessionRetrySettings, installSupplementalRetry } from './supplemental-retry.js';
 
 export const name = 'capinfo-models';
 export const inject = ['llm', 'settings', 'credentials', 'storageDomain', 'connection'];
 export const Config = Schema.object({
   baseURL: Schema.string().description('Capinfo API URL; defaults to the existing capinfo provider URL.'),
   api: Schema.union(['openai-completions', 'openai-responses', 'anthropic-messages']).description('Protocol; defaults to the existing capinfo provider protocol.'),
+  retryEnabled: Schema.boolean().default(true).volatile().description('Feature switch for per-session supplemental retries of Capinfo failures after native recovery declines.'),
 }).default({});
 
 export async function apply(ctx, config) {
@@ -28,6 +30,8 @@ export async function apply(ctx, config) {
       migration: z.object({phase: z.enum(['prepared', 'active']),
         backup: z.object({ns: z.string(), revision: z.number(), profile: z.record(z.string(), z.unknown())}).optional(),
       }).optional(),
+      // Sessions that opted into supplemental retries; absent means none.
+      retrySessionIds: z.array(z.string()).optional(),
     }), initial: {models: [], lastSynced: null}},
   });
   const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -47,12 +51,23 @@ export async function apply(ctx, config) {
   const lifetime = new AbortController();
   let service, spending, starting;
   const provider = new OwnedCapinfoProvider(ctx, domain.global, createCapinfoRuntime(ctx, config, usage));
+  const featureOn = () => config.retryEnabled?.get() === true;
+  const sessionRetry = new SessionRetrySettings({
+    get: () => ({enabledSessionIds: domain.global.get().retrySessionIds ?? []}),
+    set: async ({enabledSessionIds}) => domain.global.set({...domain.global.get(), retrySessionIds: enabledSessionIds}),
+  }, featureOn);
+  installSupplementalRetry(ctx, sessionRetry);
+  // The volatile feature switch updates in place; revoke any wait it no longer covers.
+  ctx.on('loader/volatile-update', paths => {
+    if (paths.some(([field]) => field === 'retryEnabled')) sessionRetry.featureChanged();
+  });
   const ensureStarted = () => {
     if (!starting) starting = provider.start(lifetime.signal).catch(error => {starting = undefined; throw error;});
     return starting;
   };
   ctx.effect(() => async () => {
     lifetime.abort();
+    await sessionRetry.close();
     await spending?.stop();
     await starting?.catch(() => {});
     await service?.tail;
@@ -87,10 +102,10 @@ export async function apply(ctx, config) {
       return {ok: true, ...await service.run(input, AbortSignal.any([lifetime.signal, ...(signal ? [signal] : [])]))};
     } catch (error) { return {ok: false, error: safeError(error)}; }
   };
-  ctx.effect(() => ctx.connection.fetch.register({
-    path: '/api/plugins/capinfo', methods: ['POST'], requestBody: 'buffered',
+  // Connection admits authenticated same-origin browser/API peers first.
+  const jsonPost = (path, handler) => ctx.effect(() => ctx.connection.fetch.register({
+    path, methods: ['POST'], requestBody: 'buffered',
     fetch: async request => {
-      // Connection admits authenticated same-origin browser/API peers first.
       if (!request.headers.get('content-type')?.startsWith('application/json'))
         return Response.json({ok: false, error: '仅接受 JSON 请求。'}, {status: 415});
       const text = await request.text();
@@ -98,10 +113,29 @@ export async function apply(ctx, config) {
       let input;
       try { input = JSON.parse(text); }
       catch { return Response.json({ok: false, error: 'JSON 格式无效。'}, {status: 400}); }
-      const result = await call(input, request.signal);
-      return Response.json(result, {headers: {'Cache-Control': 'no-store'}});
+      return Response.json(await handler(input, request.signal), {headers: {'Cache-Control': 'no-store'}});
     },
   }));
+  jsonPost('/api/plugins/capinfo', (input, signal) => call(input, signal));
+  // Per-session retry switch. It neither needs nor starts the provider route.
+  jsonPost('/api/plugins/capinfo/retry', async (input, signal) => {
+    const invalid = message => ({ok: false, error: message});
+    try {
+      if (!input || typeof input !== 'object' || Array.isArray(input)) return invalid('操作参数无效。');
+      const {action, sessionId, enabled} = input;
+      if (Object.keys(input).some(key => !['action', 'sessionId', 'enabled'].includes(key))
+        || typeof sessionId !== 'string' || !sessionId || sessionId.length > 256 || /[\u0000-\u001f\u007f]/.test(sessionId))
+        return invalid('会话重试参数无效。');
+      // Only sessions this profile actually holds can opt in.
+      if (ctx.get('sessions')?.get && !ctx.get('sessions').get(sessionId)) return invalid('会话不存在。');
+      if (action === 'status') return enabled === undefined ? {ok: true, ...sessionRetry.status(sessionId)} : invalid('会话重试参数无效。');
+      if (action !== 'set' || typeof enabled !== 'boolean') return invalid('未知重试操作。');
+      try {
+        return {ok: true, ...await sessionRetry.set(sessionId, enabled,
+          AbortSignal.any([lifetime.signal, ...(signal ? [signal] : [])]))};
+      } catch { return invalid('会话重试设置未能保存，请重试。'); }
+    } catch (error) { return {ok: false, error: safeError(error)}; }
+  });
   // First installation uses the existing key, without reading or returning its value to the agent.
   // Running sessions retain their already-captured model configuration.
   const initialization = (async () => {

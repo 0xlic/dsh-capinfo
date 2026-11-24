@@ -29,12 +29,17 @@ export class CapinfoService {
     const selectedIds = (route.profile.models ?? []).map(model => model.id);
     return { baseURL: route.baseURL, api: route.api, hasApiKey: configured.configured,
       apiKeyWritable: configured.writable !== false,
+      retryEnabled: this.config.retryEnabled?.get() === true,
+      retryEnabledWritable: !!this.ctx.fiber?.entry && !!this.ctx.get('configEditor'),
       models: models.map(model => ({id: model.id, name: model.name || model.id})),
       selectedIds, lastSynced: cache.lastSynced,
       ...(this.usage ? {usage: this.usage.snapshot()} : {}), ...this.provider.inspection() };
   }
   run(input, signal) {
-    // Serialize across all callers; a failed request never poisons the queue.
+    // ConfigEditor owns its own serialization through HMR. Do not put an edit
+    // in the queue that plugin disposal waits on.
+    if (input.action === 'setRetryEnabled') return this.setRetryEnabled(input, signal);
+    // Serialize the storage and credential operations; failures never poison the queue.
     const result = this.tail.then(async () => {
       signal?.throwIfAborted();
       switch (input.action) {
@@ -48,6 +53,20 @@ export class CapinfoService {
     });
     this.tail = result.catch(() => {});
     return result;
+  }
+  async setRetryEnabled(input, signal) {
+    if (typeof input.retryEnabled !== 'boolean' || Object.keys(input).some(key => !['action', 'retryEnabled'].includes(key)))
+      throw new CapinfoError('会话重试设置格式无效。');
+    signal?.throwIfAborted();
+    const entry = this.ctx.fiber?.entry;
+    const editor = this.ctx.get('configEditor');
+    if (!entry || !editor) throw new CapinfoError('当前配置无法保存会话重试设置。');
+    try {
+      await editor.edit(entry, current => ({...current, retryEnabled: input.retryEnabled}));
+    } catch {
+      throw new CapinfoError('会话重试设置未能保存，请刷新设置页后重试。');
+    }
+    return this.status();
   }
   async save(input, signal) {
     if (Object.keys(input).some(key => !['action', 'apiKey'].includes(key)))

@@ -10,7 +10,7 @@ DeepSeek Harness 持久化 Host + Client 插件。配置入口：**设置 → Ca
 
 ## 功能
 
-- **看板与配置分离**：设置中的“Capinfo 模型”只保留 API 密钥与模型配置；今日用量、近 30 天金额/Token 图表移到左上角原生导航菜单【Capinfo看板】的居中弹窗，不再出现在设置页。
+- **看板与配置分离**：设置中的“Capinfo 模型”提供 API 密钥、模型配置和会话重试功能开关；今日用量、近 30 天金额/Token 图表在左上角原生导航菜单【Capinfo看板】的居中弹窗中查看。
 - 插件独立注册 `capinfo` 运行时 provider，只在“Capinfo 模型”菜单管理，不发布通用模型设置目录条目，因此通用“模型”页面不显示 Capinfo，也没有误删除入口。聊天模型选择器正常使用，provider ID 不变。
 - 首次启用后，在首次打开设置页时自动迁移现有 `capinfo` 自定义 API 的 URL、协议、凭据引用、模型及兼容参数（避免在 Loader 热加载事务内嵌套修改配置）；迁移后每次启动直接注册独立 provider。无现有路由时使用 `https://api.capinfo.com.cn/v1`、`openai-responses` 和 `CAPINFO_API_KEY`。
 - API 密钥保存至 Harness 凭据服务，不写入插件配置、不回显。已配置状态显示绿色，密钥框显示固定 12 个圆点占位符（不是实际密钥，不反映长度，也不会作为输入提交）。首次安装发现已有密钥时自动拉取一次；首次同步或保存新密钥默认选中全部模型。
@@ -19,6 +19,20 @@ DeepSeek Harness 持久化 Host + Client 插件。配置入口：**设置 → Ca
 - **输入能力与独立视觉纠偏**：一般模型优先使用自身输入类型，其次使用路由默认配置，未声明时仅支持文本；原生图片能力始终保留。[视觉纠偏规则](<vision-capabilities.js>) 当前仅针对 `glm-5.3-flash` 和 `glm-5.4`（兼容大小写及空格/下划线分隔）补充图片输入，不按显示名称或 GLM 前缀泛匹配。模型发现和适配器底层模型共用此规则，已有文本-only 配置在插件重新加载后也生效，无需重新拉取或改写原配置；后续模型只需扩展独立规则表。
 - 仅修改 `capinfo` 路由，保留其他接口。启用了 `dsh-scoped-models` 时，仅同步其中的 capinfo 选择，保留其他供应商。
 - 界面操作统一走 Host 侧 `CapinfoService.run()`，经 `POST /api/plugins/capinfo` 到达；本插件不向 agent 注册任何工具。请在设置里输入 API 密钥，不要在对话中提交秘密（对话内容会进入会话记录）。
+
+## Capinfo 会话重试
+
+两级开关，均在原生重试之外追加，不改变 Capinfo 或其他供应商的 Harness 原生重试策略：
+
+- **功能开关**：**设置 → Capinfo 模型 → 会话重试功能**，默认开启，通过宿主配置编辑器持久化。关闭后输入框开关消失，并立即取消所有等待中的追加重试。
+- **会话开关**：功能开启且当前会话选中的是 Capinfo 模型时，输入框工具行、模型选择器左侧（原生 `conversation.input.right` 槽位）显示「重试」开关。外观照搬宿主 `TrajectoryToolbar` 的紧凑开关：13/20 标签 + 24×12 轨道 + 8px 滑块，未开启时文字为次要色、轨道为边框色，开启时文字转主色、轨道变为主题蓝并滑动滑块（120ms 过渡）；28px 高与同行控件一致。默认关闭，只对当前会话生效，选择按会话 ID 持久化，重启后保留。悬停提示说明适用错误与节奏，切到其他供应商的模型时开关自动隐藏。
+
+会话开关打开后：
+
+- 仅在原生重试和其他恢复机制均未接手后，才对两种错误追加重试：错误码恰为 `gateway_concurrency_limit` 的 `PI_AI_ERROR`（例如 `gateway_concurrency_limit: Concurrency limit exceeded for account, please retry later`），或详情恰为 `terminated` 的 `TRANSPORT`。普通 HTTP 429、其他网络中断及其他错误不会因此获得追加重试。
+- **无限重试**：同一个失败模型步骤内依次等待 **5、10、20 秒**，之后固定 **每 30 秒**一次，直到成功、停止本轮、关闭会话开关或功能开关。对话中的重试行按原生「（n/∞）」样式展示，每条记录都是标准的 `llm/retry` / `llm/retry-started` 事件。
+- 在同一轮对话内从头重新请求失败的模型步骤，不自动发送“继续”、不拼接失败尝试的部分输出，也不重跑此前成功的步骤。每次重试都是新请求，可能计费。模型同步、看板请求和绕过 Agent 循环的直接调用不受影响。
+- 接口：`POST /api/plugins/capinfo/retry`，`{action: "status" | "set", sessionId, enabled?}` 返回 `{ok, available, enabled}`；只接受当前 profile 实际持有的会话 ID。
 
 ## 每日金额与 Token 用量
 
@@ -64,7 +78,7 @@ TypeScript 类型通过 `import type { CapinfoTodayUsage, CapinfoUsageSnapshot }
 
 ## 配置与存储
 
-插件 Config 可选 `baseURL`、`api`，省略时优先沿用当前 capinfo 路由。为避免将凭据发送至第三方，仅允许 HTTPS 的 `api.capinfo.com.cn`。
+插件 Config 可选 `baseURL`、`api`，省略时优先沿用当前 capinfo 路由。为避免将凭据发送至第三方，仅允许 HTTPS 的 `api.capinfo.com.cn`。`retryEnabled` 由设置页通过宿主配置编辑器持久化，默认 `true`，是会话重试的功能开关；`capinfo_models` 存储域中的 `retrySessionIds` 记录已打开会话重试的会话。
 
 - API key 使用现有路由的 `apiKeyEnv` 凭据引用（默认 `CAPINFO_API_KEY`）。
 - 接口配置、已选模型、完整候选模型缓存由 `storageDomain` 的 `capinfo_models` 域持久化。原有 v1 候选缓存向后兼容。

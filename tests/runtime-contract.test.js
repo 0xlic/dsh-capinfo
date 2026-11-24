@@ -118,6 +118,16 @@ test('provider registration uses Capinfo while preserving its route and custom n
   }
 });
 
+test('Capinfo supplemental retry never replaces a migrated native retry policy', async () => {
+  assert.equal(plugin.Config({}).retryEnabled.get(), true);
+  for (const retryEnabled of [false, true]) {
+    const runtime = createCapinfoRuntime(context(async () => undefined), plugin.Config({retryEnabled}));
+    runtime.commit(await runtime.prepare({...profile('openai-responses'), retryPolicy: {mode: 'always'}}));
+    assert.equal(runtime.adapter.providerRetryPolicy('capinfo').mode, 'always');
+    assert.equal(runtime.adapter.providerRetryPolicy('other'), undefined);
+  }
+});
+
 test('current adapter hides models without a configured credential', async () => {
   const runtime = createCapinfoRuntime(context(async () => undefined), {});
   runtime.commit(await runtime.prepare(profile('openai-responses')));

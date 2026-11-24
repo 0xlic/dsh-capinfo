@@ -24,6 +24,14 @@ window.__ModuleLoader__.load({
       saveKey: 'Save key and sync models', models: 'Available models', modelHint: 'Select at least one model for use in the model picker. Refresh keeps your saved selections.',
       search: 'Search models', selectAll: 'Select all results', clearAll: 'Clear results', saveSelection: 'Save selection',
       refresh: 'Refresh models', empty: 'Save an API key to load models.', noMatches: 'No matching models.',
+      retryMode: 'Session retry feature',
+      retryModeHint: 'On by default. While on, sessions that use a Capinfo model show a “Session retry” switch in the composer; turning this off removes that switch and stops every pending supplemental retry. Built-in retries are unchanged.',
+      retryModeReadOnly: 'This setting cannot be changed in the current profile.',
+      retryModeCost: 'Changes save immediately. Retries may incur charges.',
+      retryModeUnverified: 'Could not verify the current setting. Reload its status before changing it again.',
+      retryModeReload: 'Reload retry status', retryModeVerified: 'Retry status verified.',
+      sessionRetry: 'Retry',
+      sessionRetryHint: 'This session only. When Capinfo rate limiting (gateway_concurrency_limit) or a dropped connection (terminated) is left unhandled by built-in retries, keep retrying without a limit: wait 5, 10, then 20 seconds, then every 30 seconds. Stop the turn to cancel.',
       count: '{selected} selected · {total} models', synced: 'Last synced: {time}', never: 'Not yet synced',
       unknown: '--', saving: 'Working…', loading: 'Loading…', retry: 'Retry', saved: 'Saved.',
       refreshed: 'Models refreshed.', error: 'The request failed. Please retry.', failed: 'Operation failed:',
@@ -50,6 +58,14 @@ window.__ModuleLoader__.load({
       saveKey: '保存密钥并同步模型', models: '可用模型', modelHint: '至少选择一个模型，用于模型选择器。刷新会保留已保存的勾选。',
       search: '搜索模型', selectAll: '全选搜索结果', clearAll: '清空搜索结果勾选', saveSelection: '保存勾选',
       refresh: '刷新模型', empty: '保存 API 密钥后加载模型。', noMatches: '没有匹配的模型。',
+      retryMode: '会话重试功能',
+      retryModeHint: '默认开启。开启时，使用 Capinfo 模型的会话会在输入框显示「会话重试」开关；关闭后该开关消失，并停止所有等待中的追加重试。原生重试策略不变。',
+      retryModeReadOnly: '当前配置档案不允许修改此设置。',
+      retryModeCost: '更改会立即保存，重试可能产生费用。',
+      retryModeUnverified: '无法确认当前设置。请重新读取状态后再更改。',
+      retryModeReload: '重新读取重试状态', retryModeVerified: '已确认重试状态。',
+      sessionRetry: '重试',
+      sessionRetryHint: '仅对当前会话生效。Capinfo 限流（gateway_concurrency_limit）或连接中断（terminated）且原生重试未接手时，无限追加重试：依次等待 5、10、20 秒，之后每 30 秒一次。停止本轮可取消。',
       count: '已选 {selected} 个 · 共 {total} 个模型', synced: '上次同步：{time}', never: '尚未同步',
       unknown: '--', saving: '处理中…', loading: '正在加载…', retry: '重试', saved: '已保存。',
       refreshed: '模型已刷新。', error: '请求失败，请重试。', failed: '操作失败：',
@@ -83,9 +99,19 @@ window.__ModuleLoader__.load({
 .capinfo-settings input:not([type=checkbox]){width:100%;min-width:0;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:8px 12px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;line-height:20px}.capinfo-settings input::placeholder{color:var(--dsw-alias-label-secondary)}
 .capinfo-settings button{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);padding:7px 12px;font:inherit;font-size:13px;line-height:20px;white-space:nowrap;cursor:pointer}.capinfo-settings button:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2)}.capinfo-settings button.capinfo-primary{background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-base);border-color:var(--dsw-alias-brand-primary)}.capinfo-settings button.capinfo-primary:hover:not(:disabled){background:var(--dsw-alias-brand-primary);filter:brightness(.96)}
 .capinfo-settings :is(input,button):focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.capinfo-settings :disabled{opacity:.5;cursor:not-allowed}.capinfo-settings input[type=checkbox]{accent-color:var(--dsw-alias-brand-primary);width:16px;height:16px;flex-shrink:0;margin:0}
+.capinfo-retry-row{flex-wrap:nowrap}.capinfo-settings button.capinfo-switch{position:relative;flex:none;width:40px;height:24px;padding:0;border-radius:999px;background:var(--dsw-alias-bg-layer-2)}.capinfo-settings button.capinfo-switch:hover:not([aria-disabled=true]){border-color:var(--dsw-alias-label-secondary)}.capinfo-settings button[aria-disabled=true]{opacity:.5;cursor:not-allowed}.capinfo-settings button.capinfo-switch[aria-checked=true]{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary)}.capinfo-switch::before{content:'';position:absolute;inset-block-start:3px;inset-inline-start:3px;width:16px;height:16px;border-radius:50%;background:var(--dsw-alias-label-secondary)}.capinfo-switch[aria-checked=true]::before{inset-inline-start:19px;background:var(--dsw-alias-bg-base)}
 .capinfo-list{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;max-height:320px;overflow:auto}.capinfo-model{display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 12px;border-bottom:1px solid var(--dsw-alias-border-l1);cursor:pointer}.capinfo-model:last-child{border-bottom:0}.capinfo-model:hover{background:var(--dsw-alias-bg-layer-2)}.capinfo-model-text{min-width:0;overflow-wrap:anywhere}.capinfo-model-text small{display:block;color:var(--dsw-alias-label-secondary);font-size:12px}.capinfo-empty{padding:24px;text-align:center;color:var(--dsw-alias-label-secondary)}
 .capinfo-endpoint{overflow-wrap:anywhere}.capinfo-notice{font-size:13px;color:var(--dsw-alias-state-success-primary)}.capinfo-error{color:var(--dsw-alias-state-error-primary)}.capinfo-pending{color:var(--dsw-alias-state-warn-primary)}
 .capinfo-configured{color:var(--dsw-alias-state-success-primary);font-size:13px;font-weight:500}.capinfo-settings button.capinfo-danger{color:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary)}
+.capinfo-session-retry{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;height:28px;padding:0 8px;gap:6px;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;line-height:20px;white-space:nowrap;cursor:pointer}
+.capinfo-session-retry:hover:not(:disabled){color:var(--dsw-alias-label-primary)}
+.capinfo-session-retry:focus-visible{outline:1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));outline-offset:1px}
+.capinfo-session-retry:disabled{color:var(--dsw-alias-label-dimmed);cursor:not-allowed}
+.capinfo-session-retry[aria-checked=true]{color:var(--dsw-alias-label-primary)}
+.capinfo-session-retry-track{position:relative;display:inline-block;flex:none;width:24px;height:12px;border-radius:6px;background:var(--dsw-alias-border-l2);transition:background-color 120ms var(--ds-ease-in-out)}
+.capinfo-session-retry-thumb{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-bg-layer-1);transition:transform 120ms var(--ds-ease-in-out)}
+.capinfo-session-retry-track[data-on]{background:var(--dsw-alias-state-business-primary)}
+.capinfo-session-retry-track[data-on] .capinfo-session-retry-thumb{transform:translateX(12px)}
 @media(max-width:600px){.capinfo-chart-host{height:280px}.capinfo-summary{gap:12px}.capinfo-summary-item{gap:4px}.capinfo-summary-item strong{font-size:clamp(14px,3.5vw,22px)}.capinfo-settings{padding:16px;gap:20px}.capinfo-card{padding:16px}.capinfo-settings h2{font-size:18px}.capinfo-dialog-body{padding:16px}}`;
 
     // Beijing uses UTC+8 year-round; do not depend on the browser's time zone.
@@ -197,7 +223,16 @@ window.__ModuleLoader__.load({
         const subscribe = (listener) => ctx.locale.subscribe(listener);
         const snapshot = () => ctx.locale.getSnapshot();
 
-        // Settings keeps only configuration: API credentials and model selection.
+        // The settings page and every open composer share one tab: tell the
+        // composer switches at once when the feature switch changes there.
+        const retryFeatureListeners = new Set();
+        const notifyRetryFeature = () => { for (const listener of retryFeatureListeners) listener(); };
+        const subscribeRetryFeature = (listener) => {
+          retryFeatureListeners.add(listener);
+          return () => retryFeatureListeners.delete(listener);
+        };
+
+        // Settings keeps only configuration: API credentials, request retry and model selection.
         function SettingsSection() {
           React.useSyncExternalStore(subscribe, snapshot, snapshot);
           const [state, setState] = React.useState(null);
@@ -207,18 +242,23 @@ window.__ModuleLoader__.load({
           const [confirmDelete, setConfirmDelete] = React.useState(false);
           const [search, setSearch] = React.useState('');
           const [selected, setSelected] = React.useState([]);
+          const [retryNotice, setRetryNotice] = React.useState(null);
           const lifecycle = React.useRef({ mounted: false, controller: null });
           const uid = React.useId();
           const drafts = React.useRef(null);
-          drafts.current = { state, selected };
+          drafts.current = { state, selected, retryNotice };
 
           const request = React.useCallback(async (action, params = {}, onSuccess) => {
             const life = lifecycle.current;
-            if (!life.mounted || life.controller) return;
+            const retryWrite = action === 'setRetryEnabled';
+            const retryUnverified = drafts.current.retryNotice?.unverified;
+            const retryReload = action === 'status' && retryUnverified;
+            if (!life.mounted || life.controller || (retryWrite && retryUnverified)) return;
             const controller = new AbortController();
             life.controller = controller;
             setBusy(action);
-            setNotice(null);
+            if (retryWrite) setRetryNotice(null);
+            else if (!retryReload) setNotice(null);
             const active = () => life.mounted && life.controller === controller;
             const send = async (operation, values = {}) => {
               const response = await fetch('api/plugins/capinfo', {
@@ -237,24 +277,29 @@ window.__ModuleLoader__.load({
               const selectionDirty = draft.selected.length !== saved.length || saved.some(id => !chosen.has(id));
               if (!draft.state || !selectionDirty) setSelected(Array.isArray(data.selectedIds) ? data.selectedIds : []);
               setState(data);
+              if (retryUnverified && typeof data.retryEnabled === 'boolean') setRetryNotice({ key: 'retryModeVerified' });
             };
             const reconcile = async () => {
               try {
                 const { response, data } = await send('status');
-                if (!active() || !response.ok || data?.ok !== true) return false;
+                if (!active() || !response.ok || data?.ok !== true ||
+                    (retryWrite && typeof data.retryEnabled !== 'boolean')) return false;
                 acceptStatus(data);
                 return true;
               } catch { return false; }
             };
+            const reportFailure = async (key, detail = null) => {
+              // A mutation may have saved a value despite the failure. Read once; never replay it.
+              const synced = action !== 'status' && await reconcile();
+              if (!active() || retryReload) return;
+              if (retryWrite) setRetryNotice({ error: true, key: synced ? key : 'retryModeUnverified', detail, unverified: !synced });
+              else setNotice({ error: true, key, detail, retry: !synced });
+            };
             try {
               const { response, data } = await send(action, params);
               if (!active()) return;
-              if (!response.ok || !data || data.ok !== true) {
-                // A rejected mutation may still have saved credentials or new candidates.
-                // Read once in the background, but never replay a mutation automatically.
-                const synced = action !== 'status' && await reconcile();
-                if (active()) setNotice({ error: true, key: 'failed', retry: !synced,
-                  detail: data && typeof data.error === 'string' ? data.error : null });
+              if (!response.ok || data?.ok !== true || (retryWrite && typeof data.retryEnabled !== 'boolean')) {
+                await reportFailure('failed', typeof data?.error === 'string' ? data.error : null);
                 return;
               }
               if (action === 'status') acceptStatus(data);
@@ -270,15 +315,13 @@ window.__ModuleLoader__.load({
                 }
               }
               if (onSuccess) onSuccess();
-              if (action !== 'status') setNotice({ error: false,
+              if (retryWrite) { setRetryNotice({ key: 'saved' }); notifyRetryFeature(); }
+              else if (action !== 'status') setNotice({ error: false,
                 warning: action === 'deleteApiKey' && data.hasApiKey,
                 key: action === 'deleteApiKey' ? (data.hasApiKey ? 'keyDeletedFallback' : 'keyDeleted')
                   : action === 'refresh' ? 'refreshed' : 'saved' });
             } catch (error) {
-              if (active() && error.name !== 'AbortError') {
-                const synced = action !== 'status' && await reconcile();
-                if (active()) setNotice({ error: true, key: 'error', retry: !synced });
-              }
+              if (active() && error.name !== 'AbortError') await reportFailure('error');
             } finally {
               if (life.controller === controller) {
                 life.controller = null;
@@ -305,6 +348,11 @@ window.__ModuleLoader__.load({
           const stored = state && Array.isArray(state.selectedIds) ? state.selectedIds : [];
           const dirty = selected.length !== stored.length || stored.some((id) => !selectedSet.has(id));
           const disabled = Boolean(busy);
+          const retryEnabled = state?.retryEnabled === true;
+          const retryReadOnly = state?.retryEnabledWritable === false;
+          const retryUnverified = Boolean(retryNotice?.unverified);
+          const retryDisabled = disabled || retryReadOnly || retryUnverified;
+          const retryBusy = busy === 'setRetryEnabled' || (busy === 'status' && retryUnverified);
           const button = (key, onClick, unavailable = false, primary = false, danger = false) => h('button', {
             type: 'button', onClick, disabled: disabled || unavailable, className: danger ? 'capinfo-danger' : primary ? 'capinfo-primary' : undefined,
           }, t(key));
@@ -320,18 +368,20 @@ window.__ModuleLoader__.load({
             const parsed = new Date(value);
             return Number.isNaN(parsed.getTime()) ? t('unknown') : parsed.toLocaleString();
           };
-          const renderStatus = (message) => {
-            const working = Boolean(busy);
+          const renderStatus = (message, working, local = false) => {
             if (!message && !working) return null;
             return h('div', { role: message?.error ? 'alert' : 'status', 'aria-live': 'polite', className: 'capinfo-actions' },
               working ? h('span', { className: 'capinfo-muted' }, t(busy === 'status' ? 'loading' : 'saving')) : null,
-              message ? h('span', { className: message.error ? 'capinfo-notice capinfo-error' : message.warning ? 'capinfo-notice capinfo-pending' : 'capinfo-notice' }, t(message.key), message.detail ? ` ${message.detail}` : null) : null,
-              message?.retry && !busy ? button('retry', () => request('status')) : null);
+              message ? h('span', { id: local && retryUnverified ? `${uid}-retry-state` : undefined,
+                className: message.error ? 'capinfo-notice capinfo-error' : message.warning ? 'capinfo-notice capinfo-pending' : 'capinfo-notice' }, t(message.key), message.detail ? ` ${message.detail}` : null) : null,
+              local && retryUnverified ? h('button', { type: 'button', 'aria-disabled': disabled,
+                onClick: () => { if (!disabled) request('status'); },
+              }, t('retryModeReload')) : message?.retry && !busy ? button('retry', () => request('status')) : null);
           };
 
-          return h('div', { className: 'capinfo-settings', 'aria-busy': disabled },
+          return h('div', { className: 'capinfo-settings', 'aria-busy': disabled && !retryBusy },
             h('style', null, css),
-            renderStatus(notice),
+            renderStatus(notice, disabled && !retryBusy),
             state ? h(React.Fragment, null,
               h('section', { className: 'capinfo-card', 'aria-labelledby': `${uid}-connection` },
                 h('div', { className: 'capinfo-row' }, h('h3', { id: `${uid}-connection` }, t('connection')),
@@ -346,6 +396,18 @@ window.__ModuleLoader__.load({
                     button('cancel', () => setConfirmDelete(false)))
                     : button('deleteKey', () => setConfirmDelete(true), !state.hasApiKey || state.apiKeyWritable === false, false, true)),
                 confirmDelete ? h('p', { className: 'capinfo-muted', role: 'status' }, t('deleteKeyHint')) : null),
+              h('section', { className: 'capinfo-card', 'aria-labelledby': `${uid}-retry` },
+                h('div', { className: 'capinfo-row capinfo-retry-row' },
+                  h('h3', { id: `${uid}-retry` }, t('retryMode')),
+                  h('button', { type: 'button', role: 'switch', className: 'capinfo-switch',
+                    'aria-checked': retryEnabled, 'aria-labelledby': `${uid}-retry`,
+                    'aria-describedby': `${uid}-retry-hint${retryReadOnly ? ` ${uid}-retry-readonly` : ''}${retryUnverified ? ` ${uid}-retry-state` : ''}`,
+                    'aria-disabled': retryDisabled,
+                    onClick: () => { if (!retryDisabled) request('setRetryEnabled', { retryEnabled: !retryEnabled }); },
+                  })),
+                h('p', { id: `${uid}-retry-hint`, className: 'capinfo-muted' }, t('retryModeHint'), ' ', t('retryModeCost')),
+                retryReadOnly ? h('p', { id: `${uid}-retry-readonly`, className: 'capinfo-muted' }, t('retryModeReadOnly')) : null,
+                renderStatus(retryNotice, retryBusy, true)),
               h('section', { className: 'capinfo-card', 'aria-labelledby': `${uid}-models` },
                 h('div', { className: 'capinfo-row' }, h('h3', { id: `${uid}-models` }, t('models')),
                   button('refresh', () => request('refresh'), !state.hasApiKey)),
@@ -459,6 +521,87 @@ window.__ModuleLoader__.load({
           return open ? h(DashboardDialog, {onClose}) : null;
         }
 
+        // Composer tool-row switch: session-scoped, placed before the model selector
+        // ("conversation.input.right"), shown only while the feature is on and the
+        // bound session's current model belongs to the Capinfo provider.
+        function SessionRetryToggle({sessionId}) {
+          React.useSyncExternalStore(subscribe, snapshot, snapshot);
+          const [state, setState] = React.useState(null);
+          const [busy, setBusy] = React.useState(false);
+          const lifecycle = React.useRef({ mounted: false, controller: null });
+          // Follow the session's model selection so picking another model updates the switch.
+          // ModelDirectory exposes the shared store, not the snapshot methods themselves.
+          const directory = React.useMemo(() => {
+            if (sessionId === undefined) return undefined;
+            try {
+              const store = ctx.get('modelDirectories')?.directoryFor(sessionId)?.store;
+              // Never crash the slot when a host API drifts: hide the switch instead.
+              return store && typeof store.subscribe === 'function' && typeof store.getSnapshot === 'function'
+                ? store : undefined;
+            } catch { return undefined; }
+          }, [sessionId]);
+          const selection = React.useSyncExternalStore(
+            (listener) => directory?.subscribe(listener) ?? (() => {}),
+            () => directory?.getSnapshot().current ?? null,
+            () => directory?.getSnapshot().current ?? null,
+          );
+          const send = React.useCallback(async (action, enabled) => {
+            const life = lifecycle.current;
+            if (!life.mounted || life.controller) return;
+            const controller = new AbortController();
+            life.controller = controller;
+            if (action === 'set') setBusy(true);
+            let reconcile = false;
+            try {
+              const response = await fetch('api/plugins/capinfo/retry', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ action, sessionId, ...(action === 'set' ? { enabled } : {}) }),
+                signal: controller.signal,
+              });
+              const data = await response.json();
+              // Adopt only confirmed Host state; a failed write never flips the switch here.
+              if (life.mounted && life.controller === controller && response.ok && data?.ok === true)
+                setState({ available: data.available === true, enabled: data.enabled === true });
+              else reconcile = action === 'set';
+            } catch { reconcile = action === 'set'; }
+            finally {
+              if (life.controller === controller) {
+                life.controller = null;
+                if (life.mounted) setBusy(false);
+              }
+            }
+            // A failed write may still have saved; read once, never replay the write.
+            if (reconcile) await send('status');
+          }, [sessionId]);
+          React.useEffect(() => {
+            const life = lifecycle.current;
+            life.mounted = true;
+            void send('status');
+            const unsubscribe = subscribeRetryFeature(() => { void send('status'); });
+            return () => {
+              life.mounted = false;
+              unsubscribe();
+              life.controller?.abort();
+              life.controller = null;
+            };
+          }, [send]);
+          if (sessionId === undefined || selection?.provider !== 'capinfo' || !state?.available) return null;
+          // A compact host-style switch: label plus the native track/thumb pattern,
+          // which reads as on/off without competing with the model name.
+          return h(React.Fragment, null, h('style', null, css),
+            h('button', { type: 'button', role: 'switch', className: 'capinfo-session-retry',
+              'aria-checked': state.enabled === true, 'aria-label': t('sessionRetry'), title: t('sessionRetryHint'),
+              disabled: busy, onClick: () => { if (!busy) void send('set', !(state.enabled === true)); },
+            }, h('span', null, t('sessionRetry')),
+            h('span', { className: 'capinfo-session-retry-track', 'data-on': state.enabled === true || undefined,
+              'aria-hidden': 'true' }, h('span', { className: 'capinfo-session-retry-thumb' }))));
+        }
+
+        // The host renders this list right before the model seat; later orders follow native entries.
+        ctx.slots.inject('conversation.input.right', () => ctx.slots.register({
+          name: 'conversation.input.right', id: 'capinfo-session-retry', order: 10,
+        }, SessionRetryToggle));
         ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
           name: 'settings.section.icon', id: 'capinfo-models',
         }, ({size = 16}) => lotusIcon(size)));

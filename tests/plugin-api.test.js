@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {apply} from '../index.js';
+import {apply, Config} from '../index.js';
+import {Context} from '@deepseek-ai/cordis';
+import {LlmRuntime} from '@deepseek-ai/dsh-llm';
 import {createServer} from 'node:http';
 import {Readable} from 'node:stream';
 import {once} from 'node:events';
@@ -38,9 +40,25 @@ async function httpRead(route) {
 }
 
 test('settings bridge and Host service share the cache, never trigger I/O or migrations, and dispose cleanly', async () => {
-  let state = {models: [], lastSynced: 'cached'}, reads = 0, closed = false;
-  const effects = [], routes = new Map(), services = new Map();
+  const model = {id: 'test-model'};
+  let state = {models: [model], profile: {models: [model]}, lastSynced: 'cached'}, reads = 0, closed = false;
+  const effects = [], routes = new Map(), services = new Map(), listeners = new Map();
+  const host = new Context();
+  await host.plugin(LlmRuntime).await();
+  const llm = host.get('llm');
+  const prepareCall = () => llm.prepareCall({provider: 'capinfo', model: model.id});
+  const config = Config({baseURL: 'https://api.capinfo.com.cn/v1'});
+  const entry = {};
+  let rawConfig = {baseURL: config.baseURL};
+  const editor = {edit: async (target, change) => {
+    assert.equal(target, entry);
+    rawConfig = change(rawConfig);
+    config.retryEnabled[Object.getOwnPropertySymbols(config.retryEnabled)[0]](rawConfig.retryEnabled);
+
+  }};
   const ctx = {
+    fiber: {entry},
+    on: (name, listener) => {listeners.set(name, listener); effects.push(() => listeners.delete(name));},
     effect: fn => {const dispose = fn(); if (dispose) effects.push(dispose);},
     reflect: {provide: (name, value) => {services.set(name, value); effects.push(() => services.delete(name));}},
     settings: {configure: () => () => {}, describe: () => []},
@@ -53,11 +71,11 @@ test('settings bridge and Host service share the cache, never trigger I/O or mig
       return {global: {get: () => structuredClone(state),
         set: async next => {state = structuredClone(next);}}, close: async () => {closed = true;}};
     }}, 
-    llm: {listConfigurableProviders: () => [], listProviders: () => []},
+    llm,
     connection: {fetch: {register: route => {routes.set(route.path, route); return () => routes.delete(route.path);}}},
-    get: () => undefined,
+    get: name => name === 'configEditor' ? editor : undefined,
   };
-  await apply(ctx, {});
+  await apply(ctx, config);
   // Let the nonblocking initial sampler finish its missing-credential check.
   await new Promise(resolve => setImmediate(resolve));
   try {
@@ -83,16 +101,75 @@ test('settings bridge and Host service share the cache, never trigger I/O or mig
     const broken = {...usageRoute}; delete broken.requestBody;
     assert.equal((await httpRead(broken)).status, 500, 'omitted body mode breaks GET');
     assert.equal(reads, priorReads);
-    const response = await routes.get('/api/plugins/capinfo').fetch(new Request('http://localhost/api/plugins/capinfo', {
-      method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({action: 'status'}),
-    }));
-    const status = await response.json();
+    const settings = async input => (await routes.get('/api/plugins/capinfo').fetch(new Request('http://localhost/api/plugins/capinfo', {
+      method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(input),
+    }))).json();
+    const status = await settings({action: 'status'});
     assert.equal(Object.hasOwn(status, 'balance'), false);
     assert.deepEqual(status.usage, services.get('capinfoUsage').getSnapshot());
+    assert.equal(status.retryEnabled, true, 'the feature switch defaults to on');
+    assert.equal(status.retryEnabledWritable, true);
+    const before = await prepareCall();
+    assert.equal(before.retryPolicy.maxRetries, 5);
+    assert.equal(typeof listeners.get('agent/request-error'), 'function');
+    assert.equal(typeof listeners.get('loader/volatile-update'), 'function');
+    const retry = async input => (await routes.get('/api/plugins/capinfo/retry').fetch(new Request('http://localhost/api/plugins/capinfo/retry', {
+      method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(input),
+    }))).json();
+    assert.deepEqual(await retry({action: 'status', sessionId: 'session-1'}), {ok: true, available: true, enabled: false});
+    assert.deepEqual(await retry({action: 'set', sessionId: 'session-1', enabled: true}), {ok: true, available: true, enabled: true});
+    assert.deepEqual(state.retrySessionIds, ['session-1'], 'the opt-in is persisted with the plugin');
+    assert.deepEqual(await retry({action: 'status', sessionId: 'session-2'}), {ok: true, available: true, enabled: false});
+    for (const bad of [{action: 'set', sessionId: 'session-1'}, {action: 'status', sessionId: 'session-1', enabled: true},
+      {action: 'set', sessionId: 'session-1', enabled: true, extra: 1}, {action: 'set', sessionId: '', enabled: true},
+      {action: 'set', sessionId: 'a\u0000b', enabled: true}, {action: 'purge', sessionId: 'session-1'}, null, []]) {
+      assert.equal((await retry(bad)).ok, false, JSON.stringify(bad));
+    }
+    assert.deepEqual(state.retrySessionIds, ['session-1'], 'rejected requests change nothing');
+    const toggle = retryEnabled => settings({action: 'setRetryEnabled', retryEnabled});
+    assert.equal((await toggle('true')).ok, false);
+    assert.equal((await toggle(true)).retryEnabled, true);
+    assert.deepEqual((await prepareCall()).retryPolicy, before.retryPolicy, 'the feature switch never changes native policy');
+    assert.deepEqual(rawConfig, {baseURL: 'https://api.capinfo.com.cn/v1', retryEnabled: true});
+    assert.equal((await settings({action: 'status'})).retryEnabled, true);
+    assert.equal((await toggle(false)).retryEnabled, false);
+    assert.deepEqual((await prepareCall()).retryPolicy, before.retryPolicy, 'disabling must not change native policy');
+    assert.deepEqual(await retry({action: 'status', sessionId: 'session-1'}), {ok: true, available: false, enabled: false});
+    assert.deepEqual(await retry({action: 'set', sessionId: 'session-1', enabled: true}), {ok: true, available: false, enabled: false});
+    editor.edit = async () => {throw new Error('private config details');};
+    assert.deepEqual(await toggle(true), {ok: false, error: '会话重试设置未能保存，请刷新设置页后重试。'});
+    assert.equal((await settings({action: 'status'})).retryEnabled, false);
   } finally {
     for (const dispose of effects.reverse()) await dispose();
   }
   assert.equal(closed, true); assert.equal(routes.size, 0); assert.equal(services.size, 0);
+  assert.equal(listeners.size, 0, 'recovery listeners leave with the plugin');
+});
+
+test('the retry route refuses sessions this profile does not hold', async () => {
+  const effects = [], routes = new Map();
+  const ctx = {
+    on: () => {}, fiber: {entry: {}},
+    effect: fn => {const dispose = fn(); if (dispose) effects.push(dispose);},
+    reflect: {provide: () => {}},
+    settings: {configure: () => () => {}, describe: () => []},
+    credentials: {resolve: async () => undefined, describe: async () => ({configured: false})},
+    storageDomain: {open: async options => ({global: {get: () => structuredClone(options.global.initial),
+      set: async () => {}}, close: async () => {}})},
+    llm: {listConfigurableProviders: () => [], listProviders: () => []},
+    connection: {fetch: {register: route => {routes.set(route.path, route); return () => routes.delete(route.path);}}},
+    get: name => name === 'sessions' ? {get: id => id === 'known' ? {} : undefined} : undefined,
+  };
+  try {
+    await apply(ctx, Config({}));
+    const retry = async input => (await routes.get('/api/plugins/capinfo/retry').fetch(new Request('http://localhost/api/plugins/capinfo/retry', {
+      method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(input),
+    }))).json();
+    assert.equal((await retry({action: 'status', sessionId: 'unknown'})).error, '会话不存在。');
+    assert.deepEqual(await retry({action: 'status', sessionId: 'known'}), {ok: true, available: true, enabled: false});
+  } finally {
+    for (const dispose of effects.reverse()) await dispose();
+  }
 });
 
 
@@ -107,6 +184,7 @@ test('initial sample survives the real storage schema and exposes no private amo
       currency: 'CNY', unit: 'CNY', unlimited_quota: true, balance: null, total: null, used: 1.3232272});
   };
   const ctx = {
+    on: () => {},
     effect: fn => {const dispose = fn(); if (dispose) effects.push(dispose);},
     reflect: {provide: () => {}},
     settings: {configure: () => () => {}, describe: () => []},
