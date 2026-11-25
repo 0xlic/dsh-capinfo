@@ -8,7 +8,9 @@ const profile = {api: 'openai-responses', baseURL: 'https://api.capinfo.com.cn/v
 
 test('vision correction matches only registered IDs and safe spelling variants', () => {
   for (const id of ['glm-5.3-flash', 'GLM-5.3-Flash', 'Glm 5.3 Flash', 'glm_5.3_flash',
-    'glm-5.4', 'GLM-5.4', 'GLM 5.4', 'glm_5.4']) {
+    'glm-5.4', 'GLM-5.4', 'GLM 5.4', 'glm_5.4',
+    'DeepSeek-V4.1-Flash', 'deepseek_v4.1_flash', 'DEEPSEEK V4.1 FLASH',
+    'kimi-k3', 'Kimi K3', 'KIMI_K3', 'kimi-k3.1-pro', 'Kimi K3.1 Pro', 'kimi_k3.1_pro']) {
     for (const input of [undefined, [], ['text'], ['text', 'image'], ['image']]) {
       const before = structuredClone(input);
       const actual = correctVisionInput(id, input);
@@ -19,7 +21,8 @@ test('vision correction matches only registered IDs and safe spelling variants',
     }
   }
   for (const id of ['glm-5.3', 'glm-5-flash', 'glm-5.3-flash-preview', 'glm-5.3-flash-extra',
-    'vendor/glm-5.3-flash', 'not-glm-5.3-flash', '', undefined]) {
+    'vendor/glm-5.3-flash', 'not-glm-5.3-flash', '', undefined,
+    'DeepSeek-V4-Pro', 'deepseek-v4', 'kimi-k2.5', 'kimi-k3.1', 'vendor/kimi-k3']) {
     assert.equal(correctVisionInput(id, undefined), undefined);
     const input = ['text'];
     assert.equal(correctVisionInput(id, input), input);

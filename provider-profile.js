@@ -1,5 +1,6 @@
 import { CapinfoError } from './capinfo-service.js';
 import { correctVisionInput } from './vision-capabilities.js';
+import { modelMetadata } from './model-metadata.js';
 
 // Capinfo-only projection of the public pi-ai Model vocabulary. Compatibility semantics
 // follow DSH llm-pi-ai@0.2.2-rc.1 (MIT); full history/stream conversion is NOT copied.
@@ -40,16 +41,19 @@ export function capinfoModelFields(profile) {
       if (!allowed.has(key) || value == null) fail();
       compat[key] = value;
     }
+    // Maintained metadata fills gaps only; explicit saved values keep precedence.
+    const meta = modelMetadata(entry.id);
     const model = {id: entry.id, name: entry.name ?? entry.id, provider: 'capinfo', api, baseUrl: profile.baseURL,
       input: correctVisionInput(entry.id, inputOf(entry.input?.length ? entry.input : defaultInput)),
       cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0},
-      contextWindow: positive(entry.contextWindow ?? profile.defaultContextWindow ?? 262144),
-      maxTokens: positive(entry.maxTokens ?? profile.defaultMaxTokens ?? 32768), reasoning: false};
+      contextWindow: positive(entry.contextWindow ?? meta?.contextWindow ?? profile.defaultContextWindow ?? 262144),
+      maxTokens: positive(entry.maxTokens ?? meta?.maxTokens ?? profile.defaultMaxTokens ?? 32768), reasoning: false};
     if (!model.name) fail();
     if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens);
     if (Object.keys(compat).length) model.compat = compat;
-    if (entry.reasoningEfforts !== undefined && entry.reasoningEfforts !== false) {
-      const efforts = entry.reasoningEfforts;
+    const declared = entry.reasoningEfforts !== undefined ? entry.reasoningEfforts : meta?.reasoningEfforts;
+    if (declared !== undefined && declared !== false) {
+      const efforts = declared;
       if (!efforts || typeof efforts !== 'object' || Array.isArray(efforts)
         || Object.keys(efforts).some(level => !LEVELS.includes(level))
         || !LEVELS.some(level => level !== 'off' && efforts[level] !== undefined)) fail();

@@ -26,6 +26,7 @@
     "supplemental-retry.js",
     "provider-profile.js",
     "model-discovery.js",
+    "model-metadata.js",
     "vision-capabilities.js",
     "client.js",
     "cordis.patch.yml",
@@ -42,7 +43,7 @@
   ],
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "node --check spending.js && node --check usage.js && node --check usage-service.js && node --check index.js && node --check capinfo-service.js && node --check owned-provider.js && node --check provider-runtime.js && node --check supplemental-retry.js && node --check provider-profile.js && node --check model-discovery.js && node --check vision-capabilities.js && node --check client.js && node --check client-source.js && node --check usage-chart.js && node --check usage-chart-options.js && node scripts/build-client.mjs --check",
+    "check": "node --check spending.js && node --check usage.js && node --check usage-service.js && node --check index.js && node --check capinfo-service.js && node --check owned-provider.js && node --check provider-runtime.js && node --check supplemental-retry.js && node --check provider-profile.js && node --check model-discovery.js && node --check model-metadata.js && node --check vision-capabilities.js && node --check client.js && node --check client-source.js && node --check usage-chart.js && node --check usage-chart-options.js && node scripts/build-client.mjs --check",
     "build": "node scripts/build-client.mjs"
   },
   "peerDependencies": {
