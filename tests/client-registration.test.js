@@ -68,10 +68,10 @@ test('client registers settings, a keyed main panel and the native sidebar panel
   const {registrations, effects} = apply();
   assert.equal(registrations.length, 6);
   const byName = Object.fromEntries(registrations.map(row => [row.meta.name, row.meta]));
-  assert.deepEqual(Object.keys(byName).sort(), ['conversation.input.right', 'main', 'settings.section', 'settings.section.icon', 'shell.overlay', 'sidebar.panellist']);
-  // The tool-row list renders before the model selector; the dock below the card is not used.
-  assert.equal(byName['conversation.input.right'].id, 'capinfo-session-retry');
-  assert.doesNotMatch(script, /'conversation\.composer\.dock'/);
+  assert.deepEqual(Object.keys(byName).sort(), ['conversation.input.model.options', 'main', 'settings.section', 'settings.section.icon', 'shell.overlay', 'sidebar.panellist']);
+  // Use the model menu extension, not the toolbar or the dock below the composer.
+  assert.equal(byName['conversation.input.model.options'].id, 'capinfo-session-retry');
+  assert.doesNotMatch(script, /['"]conversation\.(?:composer\.dock|input\.right)['"]/);
   const icon = registrations.find(row => row.meta.name === 'settings.section.icon');
   assert.equal(icon.meta.id, 'capinfo-models');
   for (const size of [16, 20, 24]) {
@@ -218,8 +218,8 @@ function renderableReact() {
   };
 }
 
-function loadDock(provider) {
-  const calls = [], responses = [];
+function loadModelMenu(provider) {
+  const calls = [], responses = [], errors = [];
   const modules = [];
   vm.runInNewContext(script, {
     window: {__ModuleLoader__: {load: module => modules.push(module)}},
@@ -244,16 +244,16 @@ function loadDock(provider) {
     layout: {selectPanel() {}, panelInfo: {getSnapshot: () => ({activePanelId: null}), subscribe: () => () => {}}},
     slots: {inject: (_name, callback) => callback(), register: (meta, component) => registrations.push({meta, component})},
   });
-  const Toggle = registrations.find(row => row.meta.name === 'conversation.input.right').component;
-  const render = sessionId => { React.beginRender(); const tree = Toggle({sessionId}); React.flushEffects(); return tree; };
-  return {render, calls, respond: (...rows) => responses.push(...rows)};
+  const Toggle = registrations.find(row => row.meta.name === 'conversation.input.model.options').component;
+  const render = (sessionId, locked = false) => { React.beginRender(); const tree = Toggle({sessionId, locked, reportFailure: message => errors.push(message)}); React.flushEffects(); return tree; };
+  return {render, calls, errors, respond: (...rows) => responses.push(...rows)};
 }
 
-test('tool-row switch appears only for Capinfo sessions while the feature is on, and follows confirmed state', async () => {
+test('model-menu switch appears only for Capinfo sessions while the feature is on, and follows confirmed state', async () => {
   const tick = () => new Promise(resolve => setImmediate(resolve));
   for (const [provider, status, shown] of [['capinfo', {available: true, enabled: false}, true],
     ['capinfo', {available: false, enabled: false}, false], ['deepseek-official', {available: true, enabled: false}, false]]) {
-    const f = loadDock(provider);
+    const f = loadModelMenu(provider);
     f.respond(status);
     assert.equal(f.render('session-1'), null, 'nothing renders before the Host confirms');
     await tick();
@@ -262,7 +262,11 @@ test('tool-row switch appears only for Capinfo sessions while the feature is on,
     const toggle = walk(tree).find(node => node.type === 'button');
     assert.equal(toggle.props.role, 'switch');
     assert.equal(toggle.props['aria-checked'], false);
-    assert.equal(toggle.props.disabled, false);
+    assert.equal(toggle.props['aria-disabled'], false);
+    const lockedToggle = walk(f.render('session-1', true)).find(node => node.type === 'button');
+    assert.equal(lockedToggle.props['aria-disabled'], true);
+    lockedToggle.props.onClick();
+    assert.equal(f.calls.length, 1);
     // The control is a host-style switch: label + track/thumb, not a tinted link.
     const track = node => walk(node).find(child => child.props?.className === 'capinfo-session-retry-track');
     assert.equal(track(tree).props['data-on'], undefined, 'off: track has no on marker');
@@ -270,7 +274,7 @@ test('tool-row switch appears only for Capinfo sessions while the feature is on,
     // Toggling posts one write for this session and adopts the returned state only.
     f.respond({available: true, enabled: true});
     toggle.props.onClick();
-    assert.equal(f.render('session-1').children.find(node => node.type === 'button').props.disabled, true, 'busy while saving');
+    assert.equal(f.render('session-1').children.find(node => node.type === 'button').props['aria-disabled'], true, 'busy while saving');
     await tick();
     assert.deepEqual(f.calls.map(call => [call.url, call.body]), [
       ['api/plugins/capinfo/retry', {action: 'status', sessionId: 'session-1'}],
@@ -282,12 +286,13 @@ test('tool-row switch appears only for Capinfo sessions while the feature is on,
     assert.equal(f.render(undefined), null, 'no bound session, no switch');
   }
   // A failed write is read back once and never replayed or flipped optimistically.
-  const f = loadDock('capinfo');
+  const f = loadModelMenu('capinfo');
   f.respond({available: true, enabled: false});
   f.render('session-1'); await tick();
   f.respond({ok: false, error: 'offline'}, {available: true, enabled: false});
   walk(f.render('session-1')).find(node => node.type === 'button').props.onClick();
   await tick(); await tick();
   assert.deepEqual(f.calls.map(call => call.body.action), ['status', 'set', 'status']);
+  assert.deepEqual(f.errors, ['error']);
   assert.equal(walk(f.render('session-1')).find(node => node.type === 'button').props['aria-checked'], false);
 });

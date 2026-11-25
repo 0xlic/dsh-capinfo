@@ -25,13 +25,13 @@ window.__ModuleLoader__.load({
       search: 'Search models', selectAll: 'Select all results', clearAll: 'Clear results', saveSelection: 'Save selection',
       refresh: 'Refresh models', empty: 'Save an API key to load models.', noMatches: 'No matching models.',
       retryMode: 'Session retry feature',
-      retryModeHint: 'On by default. While on, sessions that use a Capinfo model show a “Session retry” switch in the composer; turning this off removes that switch and stops every pending supplemental retry. Built-in retries are unchanged.',
+      retryModeHint: 'On by default. While on, sessions that use a Capinfo model show a “Session retry” switch in the model menu; turning this off removes that switch and stops every pending supplemental retry. Built-in retries are unchanged.',
       retryModeReadOnly: 'This setting cannot be changed in the current profile.',
       retryModeCost: 'Changes save immediately. Retries may incur charges.',
       retryModeUnverified: 'Could not verify the current setting. Reload its status before changing it again.',
       retryModeReload: 'Reload retry status', retryModeVerified: 'Retry status verified.',
-      sessionRetry: 'Retry',
-      sessionRetryHint: 'This session only. When Capinfo rate limiting (gateway_concurrency_limit) or a dropped connection (terminated) is left unhandled by built-in retries, keep retrying without a limit: wait 5, 10, then 20 seconds, then every 30 seconds. Stop the turn to cancel.',
+      sessionRetry: 'Session retry',
+      sessionRetryHint: 'This session only. When Capinfo rate limiting (gateway_concurrency_limit) or a dropped connection (terminated) is left unhandled by built-in retries, keep retrying without a limit: wait 5, 10, then 20 seconds, then every 30 seconds. Stop the turn to cancel. Retries may incur charges.',
       count: '{selected} selected · {total} models', synced: 'Last synced: {time}', never: 'Not yet synced',
       unknown: '--', saving: 'Working…', loading: 'Loading…', retry: 'Retry', saved: 'Saved.',
       refreshed: 'Models refreshed.', error: 'The request failed. Please retry.', failed: 'Operation failed:',
@@ -59,13 +59,13 @@ window.__ModuleLoader__.load({
       search: '搜索模型', selectAll: '全选搜索结果', clearAll: '清空搜索结果勾选', saveSelection: '保存勾选',
       refresh: '刷新模型', empty: '保存 API 密钥后加载模型。', noMatches: '没有匹配的模型。',
       retryMode: '会话重试功能',
-      retryModeHint: '默认开启。开启时，使用 Capinfo 模型的会话会在输入框显示「会话重试」开关；关闭后该开关消失，并停止所有等待中的追加重试。原生重试策略不变。',
+      retryModeHint: '默认开启。开启时，使用 Capinfo 模型的会话会在模型菜单中显示「会话重试」开关；关闭后该开关消失，并停止所有等待中的追加重试。原生重试策略不变。',
       retryModeReadOnly: '当前配置档案不允许修改此设置。',
       retryModeCost: '更改会立即保存，重试可能产生费用。',
       retryModeUnverified: '无法确认当前设置。请重新读取状态后再更改。',
       retryModeReload: '重新读取重试状态', retryModeVerified: '已确认重试状态。',
-      sessionRetry: '重试',
-      sessionRetryHint: '仅对当前会话生效。Capinfo 限流（gateway_concurrency_limit）或连接中断（terminated）且原生重试未接手时，无限追加重试：依次等待 5、10、20 秒，之后每 30 秒一次。停止本轮可取消。',
+      sessionRetry: '会话重试',
+      sessionRetryHint: '仅对当前会话生效。Capinfo 限流（gateway_concurrency_limit）或连接中断（terminated）且原生重试未接手时，无限追加重试：依次等待 5、10、20 秒，之后每 30 秒一次。停止本轮可取消；重试可能产生费用。',
       count: '已选 {selected} 个 · 共 {total} 个模型', synced: '上次同步：{time}', never: '尚未同步',
       unknown: '--', saving: '处理中…', loading: '正在加载…', retry: '重试', saved: '已保存。',
       refreshed: '模型已刷新。', error: '请求失败，请重试。', failed: '操作失败：',
@@ -103,15 +103,15 @@ window.__ModuleLoader__.load({
 .capinfo-list{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;max-height:320px;overflow:auto}.capinfo-model{display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 12px;border-bottom:1px solid var(--dsw-alias-border-l1);cursor:pointer}.capinfo-model:last-child{border-bottom:0}.capinfo-model:hover{background:var(--dsw-alias-bg-layer-2)}.capinfo-model-text{min-width:0;overflow-wrap:anywhere}.capinfo-model-text small{display:block;color:var(--dsw-alias-label-secondary);font-size:12px}.capinfo-empty{padding:24px;text-align:center;color:var(--dsw-alias-label-secondary)}
 .capinfo-endpoint{overflow-wrap:anywhere}.capinfo-notice{font-size:13px;color:var(--dsw-alias-state-success-primary)}.capinfo-error{color:var(--dsw-alias-state-error-primary)}.capinfo-pending{color:var(--dsw-alias-state-warn-primary)}
 .capinfo-configured{color:var(--dsw-alias-state-success-primary);font-size:13px;font-weight:500}.capinfo-settings button.capinfo-danger{color:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary)}
-.capinfo-session-retry{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;height:28px;padding:0 8px;gap:6px;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;line-height:20px;white-space:nowrap;cursor:pointer}
-.capinfo-session-retry:hover:not(:disabled){color:var(--dsw-alias-label-primary)}
-.capinfo-session-retry:focus-visible{outline:1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));outline-offset:1px}
-.capinfo-session-retry:disabled{color:var(--dsw-alias-label-dimmed);cursor:not-allowed}
-.capinfo-session-retry[aria-checked=true]{color:var(--dsw-alias-label-primary)}
-.capinfo-session-retry-track{position:relative;display:inline-block;flex:none;width:24px;height:12px;border-radius:6px;background:var(--dsw-alias-border-l2);transition:background-color 120ms var(--ds-ease-in-out)}
-.capinfo-session-retry-thumb{position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-bg-layer-1);transition:transform 120ms var(--ds-ease-in-out)}
-.capinfo-session-retry-track[data-on]{background:var(--dsw-alias-state-business-primary)}
-.capinfo-session-retry-track[data-on] .capinfo-session-retry-thumb{transform:translateX(12px)}
+.capinfo-session-retry{display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;width:100%;min-height:34px;padding:0 8px;gap:16px;border:0;border-radius:var(--dsw-radius-md);background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px;text-align:start;cursor:pointer}
+@media(hover:hover){.capinfo-session-retry:hover:not([aria-disabled=true]){background:var(--dsw-alias-interactive-bg-hover)}}
+.capinfo-session-retry:focus-visible{background:var(--dsw-alias-interactive-bg-hover);outline:1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));outline-offset:-1px}
+.capinfo-session-retry[aria-disabled=true]{color:var(--dsw-alias-label-dimmed);cursor:default}
+.capinfo-session-retry-track{position:relative;display:inline-block;flex:none;width:36px;height:20px;border-radius:999px;background:var(--dsw-alias-border-l2);transition:background-color 120ms ease-in-out}
+.capinfo-session-retry-thumb{position:absolute;inset-block-start:2px;inset-inline-start:2px;width:16px;height:16px;border-radius:50%;background:var(--dsw-alias-bg-layer-1);transition:inset-inline-start 120ms ease-in-out}
+.capinfo-session-retry-track[data-on]{background:var(--dsw-alias-brand-primary)}
+.capinfo-session-retry-track[data-on] .capinfo-session-retry-thumb{inset-inline-start:18px}
+@media(prefers-reduced-motion:reduce){.capinfo-session-retry-track,.capinfo-session-retry-thumb{transition:none}}
 @media(max-width:600px){.capinfo-chart-host{height:280px}.capinfo-summary{gap:12px}.capinfo-summary-item{gap:4px}.capinfo-summary-item strong{font-size:clamp(14px,3.5vw,22px)}.capinfo-settings{padding:16px;gap:20px}.capinfo-card{padding:16px}.capinfo-settings h2{font-size:18px}.capinfo-dialog-body{padding:16px}}`;
 
     // Beijing uses UTC+8 year-round; do not depend on the browser's time zone.
@@ -521,14 +521,14 @@ window.__ModuleLoader__.load({
           return open ? h(DashboardDialog, {onClose}) : null;
         }
 
-        // Composer tool-row switch: session-scoped, placed before the model selector
-        // ("conversation.input.right"), shown only while the feature is on and the
-        // bound session's current model belongs to the Capinfo provider.
-        function SessionRetryToggle({sessionId}) {
+        // Contribute to the root of the native model menu, not the composer toolbar.
+        function SessionRetryToggle({sessionId, locked, reportFailure}) {
           React.useSyncExternalStore(subscribe, snapshot, snapshot);
           const [state, setState] = React.useState(null);
           const [busy, setBusy] = React.useState(false);
-          const lifecycle = React.useRef({ mounted: false, controller: null });
+          const lifecycle = React.useRef({ mounted: false, controller: null, action: null });
+          const failureReporter = React.useRef(reportFailure);
+          failureReporter.current = reportFailure;
           // Follow the session's model selection so picking another model updates the switch.
           // ModelDirectory exposes the shared store, not the snapshot methods themselves.
           const directory = React.useMemo(() => {
@@ -550,6 +550,7 @@ window.__ModuleLoader__.load({
             if (!life.mounted || life.controller) return;
             const controller = new AbortController();
             life.controller = controller;
+            life.action = action;
             if (action === 'set') setBusy(true);
             let reconcile = false;
             try {
@@ -557,24 +558,29 @@ window.__ModuleLoader__.load({
                 method: 'POST', credentials: 'same-origin',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ action, sessionId, ...(action === 'set' ? { enabled } : {}) }),
-                signal: controller.signal,
+                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
               });
               const data = await response.json();
               // Adopt only confirmed Host state; a failed write never flips the switch here.
               if (life.mounted && life.controller === controller && response.ok && data?.ok === true)
-                setState({ available: data.available === true, enabled: data.enabled === true });
+                setState({ sessionId, available: data.available === true, enabled: data.enabled === true });
               else reconcile = action === 'set';
             } catch { reconcile = action === 'set'; }
             finally {
               if (life.controller === controller) {
                 life.controller = null;
+                life.action = null;
                 if (life.mounted) setBusy(false);
               }
             }
             // A failed write may still have saved; read once, never replay the write.
-            if (reconcile) await send('status');
+            if (reconcile && life.mounted && !controller.signal.aborted) {
+              failureReporter.current?.(t('error'));
+              await send('status');
+            }
           }, [sessionId]);
           React.useEffect(() => {
+            if (sessionId === undefined || selection?.provider !== 'capinfo') return;
             const life = lifecycle.current;
             life.mounted = true;
             void send('status');
@@ -582,25 +588,26 @@ window.__ModuleLoader__.load({
             return () => {
               life.mounted = false;
               unsubscribe();
-              life.controller?.abort();
+              // Closing the menu must not cancel an explicit save already in flight.
+              if (life.action === 'status') life.controller?.abort();
               life.controller = null;
+              life.action = null;
             };
-          }, [send]);
-          if (sessionId === undefined || selection?.provider !== 'capinfo' || !state?.available) return null;
-          // A compact host-style switch: label plus the native track/thumb pattern,
-          // which reads as on/off without competing with the model name.
+          }, [send, sessionId, selection?.provider]);
+          if (sessionId === undefined || selection?.provider !== 'capinfo' || state?.sessionId !== sessionId || !state.available) return null;
+          const disabled = locked || busy;
           return h(React.Fragment, null, h('style', null, css),
             h('button', { type: 'button', role: 'switch', className: 'capinfo-session-retry',
-              'aria-checked': state.enabled === true, 'aria-label': t('sessionRetry'), title: t('sessionRetryHint'),
-              disabled: busy, onClick: () => { if (!busy) void send('set', !(state.enabled === true)); },
+              'aria-checked': state.enabled === true, 'aria-label': t('sessionRetry'),
+              'aria-description': t('sessionRetryHint'), title: t('sessionRetryHint'),
+              'aria-disabled': !!disabled, onClick: () => { if (!disabled) void send('set', !(state.enabled === true)); },
             }, h('span', null, t('sessionRetry')),
             h('span', { className: 'capinfo-session-retry-track', 'data-on': state.enabled === true || undefined,
               'aria-hidden': 'true' }, h('span', { className: 'capinfo-session-retry-thumb' }))));
         }
 
-        // The host renders this list right before the model seat; later orders follow native entries.
-        ctx.slots.inject('conversation.input.right', () => ctx.slots.register({
-          name: 'conversation.input.right', id: 'capinfo-session-retry', order: 10,
+        ctx.slots.inject('conversation.input.model.options', () => ctx.slots.register({
+          name: 'conversation.input.model.options', id: 'capinfo-session-retry', order: 10,
         }, SessionRetryToggle));
         ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
           name: 'settings.section.icon', id: 'capinfo-models',
