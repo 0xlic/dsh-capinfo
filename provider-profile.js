@@ -1,6 +1,6 @@
 import { CapinfoError } from './capinfo-service.js';
 import { correctVisionInput } from './vision-capabilities.js';
-import { modelMetadata } from './model-metadata.js';
+import { modelContextWindow, modelMetadata } from './model-metadata.js';
 
 // Capinfo-only projection of the public pi-ai Model vocabulary. Compatibility semantics
 // follow DSH llm-pi-ai@0.2.2-rc.1 (MIT); full history/stream conversion is NOT copied.
@@ -46,7 +46,7 @@ export function capinfoModelFields(profile) {
     const model = {id: entry.id, name: entry.name ?? entry.id, provider: 'capinfo', api, baseUrl: profile.baseURL,
       input: correctVisionInput(entry.id, inputOf(entry.input?.length ? entry.input : defaultInput)),
       cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0},
-      contextWindow: positive(entry.contextWindow ?? meta?.contextWindow ?? profile.defaultContextWindow ?? 262144),
+      contextWindow: positive(modelContextWindow(entry, profile, meta)),
       maxTokens: positive(entry.maxTokens ?? meta?.maxTokens ?? profile.defaultMaxTokens ?? 32768), reasoning: false};
     if (!model.name) fail();
     if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens);

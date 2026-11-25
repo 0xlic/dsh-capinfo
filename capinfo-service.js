@@ -1,3 +1,6 @@
+import { modelContextWindow } from './model-metadata.js';
+import { correctVisionInput } from './vision-capabilities.js';
+
 export class CapinfoError extends Error {}
 const DEFAULT_URL = 'https://api.capinfo.com.cn/v1';
 const clone = value => structuredClone(value);
@@ -26,12 +29,19 @@ export class CapinfoService {
     const cache = this.store.get();
     const configured = await this.ctx.credentials.describe(route.keyRef);
     const models = cache.models.length ? cache.models : (route.profile.models ?? []);
-    const selectedIds = (route.profile.models ?? []).map(model => model.id);
+    const selected = new Map((route.profile.models ?? []).map(model => [model.id, model]));
+    const selectedIds = [...selected.keys()];
     return { baseURL: route.baseURL, api: route.api, hasApiKey: configured.configured,
       apiKeyWritable: configured.writable !== false,
       retryEnabled: this.config.retryEnabled?.get() === true,
       retryEnabledWritable: !!this.ctx.fiber?.entry && !!this.ctx.get('configEditor'),
-      models: models.map(model => ({id: model.id, name: model.name || model.id})),
+      models: models.map(model => {
+        // Selected rows describe the active profile; other rows describe candidates.
+        const entry = selected.get(model.id) ?? model;
+        return {id: model.id, name: model.name || model.id,
+          input: correctVisionInput(entry.id, entry.input?.length ? entry.input : route.profile.defaultInput ?? ['text']),
+          contextWindow: modelContextWindow(entry, route.profile)};
+      }),
       selectedIds, lastSynced: cache.lastSynced,
       ...(this.usage ? {usage: this.usage.snapshot()} : {}), ...this.provider.inspection() };
   }

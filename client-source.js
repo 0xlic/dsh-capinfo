@@ -23,6 +23,7 @@ window.__ModuleLoader__.load({
       keyDeleted: 'Saved API credential deleted.', keyDeletedFallback: 'Local credential deleted, but an environment fallback still supplies an API key.',
       saveKey: 'Save key and sync models', models: 'Available models', modelHint: 'Select at least one model for use in the model picker. Refresh keeps your saved selections.',
       search: 'Search models', selectAll: 'Select all results', clearAll: 'Clear results', saveSelection: 'Save selection',
+      modelContext: 'Context: {length}',
       refresh: 'Refresh models', empty: 'Save an API key to load models.', noMatches: 'No matching models.',
       retryMode: 'Session retry feature',
       retryModeHint: 'On by default. While on, sessions that use a Capinfo model show a “Session retry” switch in the model menu; turning this off removes that switch and stops every pending supplemental retry. Built-in retries are unchanged.',
@@ -57,6 +58,7 @@ window.__ModuleLoader__.load({
       keyDeleted: '已删除保存的 API 凭证。', keyDeletedFallback: '本地凭证已删除，但环境中的备用密钥仍然生效。',
       saveKey: '保存密钥并同步模型', models: '可用模型', modelHint: '至少选择一个模型，用于模型选择器。刷新会保留已保存的勾选。',
       search: '搜索模型', selectAll: '全选搜索结果', clearAll: '清空搜索结果勾选', saveSelection: '保存勾选',
+      modelContext: '上下文 {length}',
       refresh: '刷新模型', empty: '保存 API 密钥后加载模型。', noMatches: '没有匹配的模型。',
       retryMode: '会话重试功能',
       retryModeHint: '默认开启。开启时，使用 Capinfo 模型的会话会在模型菜单中显示「会话重试」开关；关闭后该开关消失，并停止所有等待中的追加重试。原生重试策略不变。',
@@ -120,6 +122,13 @@ window.__ModuleLoader__.load({
 
     const validAmount = value => typeof value === 'number' && Number.isFinite(value) && value >= 0;
     const validTokens = value => Number.isSafeInteger(value) && value >= 0;
+    const formatContext = value => {
+      if (!validTokens(value) || value === 0) return null;
+      if (value < 1e3) return String(value);
+      const thousands = Math.round(value / 100) / 10;
+      // A single decimal keeps 1,048,576 at the model-card shorthand of 1M.
+      return thousands >= 1e3 ? `${Math.round(value / 1e5) / 10}M` : `${thousands}K`;
+    };
     const currency = value => `¥${(validAmount(value) ? value : 0).toFixed(2)}`;
     // Below 10,000 the exact count is short enough to show; above it, group by
     // yi/wan and drop the sub-group remainder so the headline stays compact.
@@ -420,10 +429,25 @@ window.__ModuleLoader__.load({
                     h('div', { className: 'capinfo-actions' },
                       button('selectAll', () => setSelected(Array.from(new Set([...selected, ...filtered.map((model) => model.id)]))), !filtered.length || filtered.every((model) => selectedSet.has(model.id))),
                       button('clearAll', () => { const ids = new Set(filtered.map((model) => model.id)); setSelected(selected.filter((id) => !ids.has(id))); }, !filtered.some((model) => selectedSet.has(model.id))))),
-                  h('div', { className: 'capinfo-list' }, filtered.length ? filtered.map((model) => h('label', { className: 'capinfo-model', key: model.id },
-                    h('input', { type: 'checkbox', checked: selectedSet.has(model.id), disabled,
-                      onChange: (event) => setSelected(event.target.checked ? [...selected, model.id] : selected.filter((id) => id !== model.id)) }),
-                    h('span', { className: 'capinfo-model-text' }, model.name || model.id, model.name && model.name !== model.id ? h('small', null, model.id) : null))) : h('p', { className: 'capinfo-empty' }, t(models.length ? 'noMatches' : 'empty'))),
+                  h('div', { className: 'capinfo-list' }, filtered.length ? filtered.map((model, index) => {
+                    const input = Array.isArray(model.input) ? ['text', 'image'].filter(type => model.input.includes(type)).join('/') : '';
+                    const length = formatContext(model.contextWindow);
+                    const details = [input, length && t('modelContext', { length })].filter(Boolean).join(' · ');
+                    const exactContext = length ? t('modelContext', { length: `${model.contextWindow.toLocaleString()} tokens` }) : null;
+                    const rowId = `${uid}-model-${index}`;
+                    const distinctName = model.name && model.name !== model.id;
+                    return h('label', { className: 'capinfo-model', key: model.id },
+                      h('input', { type: 'checkbox', checked: selectedSet.has(model.id), disabled,
+                        'aria-labelledby': `${rowId}-name${distinctName ? ` ${rowId}-id` : ''}`,
+                        'aria-describedby': details ? `${rowId}-details` : undefined,
+                        onChange: (event) => setSelected(event.target.checked ? [...selected, model.id] : selected.filter((id) => id !== model.id)) }),
+                      h('span', { className: 'capinfo-model-text' }, h('span', { id: `${rowId}-name` }, model.name || model.id),
+                        distinctName ? h('small', { id: `${rowId}-id` }, model.id) : null,
+                        details ? h('small', { id: `${rowId}-details`, title: exactContext ?? undefined },
+                          exactContext ? h('span', { 'aria-hidden': true }, details) : details,
+                          exactContext ? h('span', { className: 'capinfo-sr-only' },
+                            [input, exactContext].filter(Boolean).join(' · ')) : null) : null));
+                  }) : h('p', { className: 'capinfo-empty' }, t(models.length ? 'noMatches' : 'empty'))),
                   h('div', { className: 'capinfo-row' },
                     h('div', { className: 'capinfo-actions' }, button('saveSelection', () => request('select', { selectedIds: selected }), !dirty || selected.length === 0, true),
                       dirty ? h('span', { className: 'capinfo-muted capinfo-pending' }, t(selected.length ? 'unsaved' : 'selectRequired')) : null),

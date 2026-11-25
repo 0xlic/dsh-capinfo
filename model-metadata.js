@@ -30,3 +30,7 @@ export function modelMetadata(id) {
   const key = normalizeId(id);
   return key ? MODEL_METADATA.find(rule => normalizeId(rule.id) === key) : undefined;
 }
+
+export function modelContextWindow(model, profile, metadata = modelMetadata(model.id)) {
+  return model.contextWindow ?? metadata?.contextWindow ?? profile.defaultContextWindow ?? 262144;
+}

@@ -30,7 +30,8 @@ const hookStub = (stateOverrides = new Map()) => {
   };
 };
 
-function apply(stateOverrides) {
+function apply(stateOverrides, language) {
+  const localeMessages = new Map();
   const module = load();
   const React = hookStub(stateOverrides);
   const client = module.factory(name => name === 'react' ? React : {createPortal: node => node});
@@ -46,7 +47,12 @@ function apply(stateOverrides) {
   };
   client.apply({
     effect: callback => effects.push(callback()),
-    locale: {register() {}, bind: () => key => key, subscribe() {}, getSnapshot() {}},
+    locale: {
+      register: (_namespace, lang, messages) => { localeMessages.set(lang, messages); },
+      bind: () => (key, params) => (localeMessages.get(language)?.[key] ?? key)
+        .replace(/\{(\w+)\}/g, (match, name) => params?.[name] ?? match),
+      subscribe() {}, getSnapshot() {},
+    },
     layout: {selectPanel, panelInfo: {
       getSnapshot: () => ({activePanelId}),
       subscribe: listener => {panelListeners.add(listener); return () => panelListeners.delete(listener);},
@@ -116,6 +122,32 @@ test('model controls hide cached models and dirty drafts without credentials, bu
     assert.deepEqual(state.selectedIds, ['cached-model']);
     for (const cleanup of effects) if (typeof cleanup === 'function') cleanup();
   }
+});
+
+test('model rows show localized context in K/M and describe input without renaming the checkbox', () => {
+  const models = [
+    {id: 'text-model', input: ['text'], contextWindow: 128000},
+    {id: 'vision-model', name: 'Vision model', input: ['image', 'text'], contextWindow: 1048576},
+    {id: 'boundary', input: ['text'], contextWindow: 999999},
+  ];
+  const {registrations, effects} = apply(new Map([[0, {hasApiKey: true, models}]]), 'zh');
+  const settings = registrations.find(row => row.meta.name === 'settings.section').component;
+  const rows = walk(settings()).filter(node => node.props.className === 'capinfo-model');
+  assert.equal(rows.length, models.length);
+  for (const [index, expected] of ['text · 上下文 128K', 'text/image · 上下文 1M', 'text · 上下文 1M'].entries()) {
+    const nodes = walk(rows[index]);
+    const checkbox = nodes.find(node => node.props.type === 'checkbox');
+    const details = nodes.find(node => node.props.id === checkbox.props['aria-describedby']);
+    assert.equal(details.type, 'small');
+    assert.equal(details.children[0].children[0], expected);
+    const exact = `上下文 ${models[index].contextWindow.toLocaleString()} tokens`;
+    assert.equal(details.props.title, exact);
+    assert.ok(details.children[1].children[0].endsWith(exact));
+    const names = checkbox.props['aria-labelledby'].split(' ')
+      .map(id => nodes.find(node => node.props.id === id).children[0]);
+    assert.deepEqual([...names], index === 1 ? ['Vision model', 'vision-model'] : [models[index].id]);
+  }
+  for (const cleanup of effects) if (typeof cleanup === 'function') cleanup();
 });
 
 test('retry is an accessible Capinfo settings switch, off by default and independent of credentials', () => {

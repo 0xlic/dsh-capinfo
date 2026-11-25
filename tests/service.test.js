@@ -76,6 +76,29 @@ test('subsequent refresh preserves choice; new models are candidates, not silent
   assert.deepEqual(f.config.providers.capinfo.models.map(row => row.id), ['two']);
 });
 
+test('status reports effective input and context for selected models and candidates', async () => {
+  const f = fixture();
+  const profile = f.config.providers.capinfo;
+  profile.defaultContextWindow = 64000;
+  profile.models[0] = {id: 'one', input: ['text', 'image'], contextWindow: 512000};
+  assert.deepEqual((await f.service.status()).models, [
+    {id: 'one', name: 'one', input: ['text', 'image'], contextWindow: 512000},
+  ]);
+  f.setDiscovery([
+    {id: 'one'}, {id: 'DeepSeek-V4-Pro'}, {id: 'KIMI_K3'},
+    {id: 'glm-5.4', contextWindow: 128000, inputModalities: ['text']}, {id: 'unknown'},
+  ]);
+  const status = await f.service.run({action: 'refresh'});
+  assert.deepEqual(status.selectedIds, ['one']);
+  assert.deepEqual(status.models, [
+    {id: 'one', name: 'one', input: ['text', 'image'], contextWindow: 512000},
+    {id: 'DeepSeek-V4-Pro', name: 'DeepSeek-V4-Pro', input: ['text'], contextWindow: 1000000},
+    {id: 'KIMI_K3', name: 'KIMI_K3', input: ['text', 'image'], contextWindow: 1048576},
+    {id: 'glm-5.4', name: 'glm-5.4', input: ['text', 'image'], contextWindow: 128000},
+    {id: 'unknown', name: 'unknown', input: ['text'], contextWindow: 64000},
+  ]);
+});
+
 test('saving a new key fetches all and never returns secrets', async () => {
   const f = fixture();
   const state = await f.service.run({action: 'save', apiKey: 'new-secret'});
@@ -123,7 +146,7 @@ test('vanished selections preserve route and save new candidates for adoption', 
   await assert.rejects(f.service.run({action: 'refresh'}), /全部下架/);
   assert.equal(f.mutations.length, 0);
   const state = await f.service.run({action: 'status'});
-  assert.deepEqual(state.models, [{id: 'new', name: 'new'}]);
+  assert.deepEqual(state.models, [{id: 'new', name: 'new', input: ['text'], contextWindow: 262144}]);
   await f.service.run({action: 'select', selectedIds: ['new']});
   assert.equal(f.config.providers.capinfo.models[0].id, 'new');
 });
